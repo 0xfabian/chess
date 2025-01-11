@@ -11,16 +11,13 @@ uniform vec3 light;
 uniform sampler2D shadow_map;
 
 uniform int white;
-uniform int reflection;
 
 float checkerboard(in vec2 p, in vec2 ddx, in vec2 ddy)
 {
-    // filter kernel
     vec2 w = max(abs(ddx), abs(ddy)) + 0.01;  
-    // analytical integral (box filter)
-    vec2 i = 2.0*(abs(fract((p-0.5*w)/2.0)-0.5)-abs(fract((p+0.5*w)/2.0)-0.5))/w;
-    // xor pattern
-    return 0.5 - 0.5*i.x*i.y;                  
+    vec2 i = 2.0 * (abs(fract((p - 0.5 * w) / 2.0) - 0.5) - abs(fract((p + 0.5 * w) / 2.0) - 0.5)) / w;
+
+    return 0.5 - 0.5 * i.x * i.y;                  
 }
 
 float calc_shadow(vec4 light_space_pos)
@@ -28,11 +25,9 @@ float calc_shadow(vec4 light_space_pos)
     vec3 proj_coords = light_space_pos.xyz / light_space_pos.w;
     proj_coords = proj_coords * 0.5 + 0.5;
 
-    // float closest = texture(shadow_map, proj_coords.xy).r;
     float current = proj_coords.z;
 
     float shadow = 0.0;
-
     vec2 texel_size = 1.0 / textureSize(shadow_map, 0);
     int kernel = 5;
     int sz = kernel / 2;
@@ -45,11 +40,10 @@ float calc_shadow(vec4 light_space_pos)
             shadow += current - 0.0005 > pcfDepth ? 1.0 : 0.0;        
         }    
     }
+
     shadow /= kernel * kernel;
 
     return 1 - shadow;
-
-    // return (current - 0.0000 > closest) ? 0.5 : 1.0;  
 }
 
 void main()
@@ -95,7 +89,7 @@ void main()
     float alpha = 1.0;
 
     if (white == 2)
-         alpha = 0.7;
+        alpha = 0.7;
 
     FragColor = vec4(pow(final, vec3(1 / 2.2)), alpha);
 }
