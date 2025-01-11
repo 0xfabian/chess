@@ -19,3 +19,8 @@ char* read_file(const char* path)
 
     return data;
 }
+
+float randf(float min, float max)
+{
+    return min + (max - min) * (float)rand() / RAND_MAX;
+}

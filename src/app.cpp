@@ -19,7 +19,56 @@ Board board;
 
 GLuint shadow_fbo;
 GLuint shadow_map;
-int shadow_map_size = 4096;
+GLuint offset_texture;
+int shadow_map_size = 2048;
+int offset_window_size = 16;
+int offset_filter_size = 8;
+
+vector<float> generate_offset_data()
+{
+    size_t buffer_size = offset_window_size * offset_window_size * offset_filter_size * offset_filter_size * 2;
+    vector<float> data(buffer_size);
+
+    int index = 0;
+
+    for (int wy = 0; wy < offset_window_size; wy++)
+    {
+        for (int wx = 0; wx < offset_window_size; wx++)
+        {
+            for (int fy = offset_filter_size - 1; fy >= 0; fy--)
+            {
+                for (int fx = 0; fx < offset_filter_size; fx++)
+                {
+                    float x = ((float)fx + 0.5 + randf(-0.5, 0.5)) / (float)offset_filter_size;
+                    float y = ((float)fy + 0.5 + randf(-0.5, 0.5)) / (float)offset_filter_size;
+
+                    data[index] = sqrtf(y) * cosf(2 * M_PI * x);
+                    data[index + 1] = sqrtf(y) * sinf(2 * M_PI * x);
+
+                    index += 2;
+                }
+            }
+        }
+    }
+
+    return data;
+}
+
+void create_offset_texture()
+{
+    vector<float> data = generate_offset_data();
+
+    int samples = offset_filter_size * offset_filter_size;
+
+    glActiveTexture(GL_TEXTURE2);
+    glGenTextures(1, &offset_texture);
+    glBindTexture(GL_TEXTURE_3D, offset_texture);
+    glTexStorage3D(GL_TEXTURE_3D, 1, GL_RGBA32F, samples / 2, offset_window_size, offset_window_size);
+    glTexSubImage3D(GL_TEXTURE_3D, 0, 0, 0, 0, samples / 2, offset_window_size, offset_window_size, GL_RGBA, GL_FLOAT, data.data());
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glBindTexture(GL_TEXTURE_3D, 0);
+}
 
 void shadow_mapping_init()
 {
@@ -40,6 +89,8 @@ void shadow_mapping_init()
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    create_offset_texture();
 }
 
 void shadow_pass()
@@ -87,6 +138,10 @@ void lighting_pass()
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, shadow_map);
     solid_shader.upload_int("shadow_map", 1);
+
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_3D, offset_texture);
+    solid_shader.upload_int("offset_texture", 2);
 
     glDisable(GL_CULL_FACE);
 
