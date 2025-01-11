@@ -37,7 +37,7 @@ float calc_shadow_rs(vec4 light_space_pos)
 
     float sum = 0;
     float depth = 0;
-    float radius = 15;
+    float radius = 5;
     float bias = 0.0005;
 
     for (int i = 0; i < 4; i++)
@@ -85,7 +85,7 @@ float calc_shadow(vec4 light_space_pos)
 
     float shadow = 0.0;
     vec2 texel_size = 1.0 / textureSize(shadow_map, 0);
-    int kernel = 5;
+    int kernel = 15;
     int sz = kernel / 2;
 
     for(int x = -sz; x <= sz; ++x)
