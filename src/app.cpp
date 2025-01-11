@@ -116,35 +116,35 @@ void lighting_pass()
         }
     }
 
-    glClear(GL_DEPTH_BUFFER_BIT);
+    // glClear(GL_DEPTH_BUFFER_BIT);
 
-    solid_shader.upload_mat4("model_mat", mat4(1));
-    solid_shader.upload_int("white", 2);
-    board_model.draw();
+    // solid_shader.upload_mat4("model_mat", mat4(1));
+    // solid_shader.upload_int("white", 2);
+    // board_model.draw();
 
-    solid_shader.upload_int("reflection", 0);
+    // solid_shader.upload_int("reflection", 0);
 
-    for (int y = 0; y < 8; y++)
-    {
-        for (int x = 0; x < 8; x++)
-        {
-            Square* square = board.getSquare(x, y);
+    // for (int y = 0; y < 8; y++)
+    // {
+    //     for (int x = 0; x < 8; x++)
+    //     {
+    //         Square* square = board.getSquare(x, y);
 
-            if (square->isEmpty())
-                continue;
+    //         if (square->isEmpty())
+    //             continue;
 
-            Piece piece = square->getPiece();
-            Color color = square->getColor();
-            Mesh* model = &models[piece];
+    //         Piece piece = square->getPiece();
+    //         Color color = square->getColor();
+    //         Mesh* model = &models[piece];
 
-            mat4 model_mat = translate(mat4(1), vec3(x - 4 + 0.5, 0, y - 4 + 0.5));
+    //         mat4 model_mat = translate(mat4(1), vec3(x - 4 + 0.5, 0, y - 4 + 0.5));
 
-            solid_shader.upload_mat4("model_mat", model_mat);
-            solid_shader.upload_int("white", color);
+    //         solid_shader.upload_mat4("model_mat", model_mat);
+    //         solid_shader.upload_int("white", color);
 
-            model->draw();
-        }
-    }
+    //         model->draw();
+    //     }
+    // }
 }
 
 void App::init()
@@ -256,7 +256,7 @@ void draw_square(int x, int y, vec3 color, float scale = 0.8)
     vec3 off = vec3(x - 4 + (1 - scale) / 2.0, 0.1, y - 4 + (1 - scale) / 2.0);
 
     if (x == board_x && y == board_y)
-        color = vec3(1, 0, 0);
+        color = vec3(1);
 
     line(vec3(0, 0, 0) + off, vec3(scale, 0, 0) + off, color);
     line(vec3(scale, 0, 0) + off, vec3(scale, 0, scale) + off, color);
@@ -279,7 +279,7 @@ void App::draw()
     }
 
     if (on_board)
-        draw_square(board_x, board_y, vec3(1, 0, 0));
+        draw_square(board_x, board_y, vec3(1));
 
     shadow_pass();
     lighting_pass();

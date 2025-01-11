@@ -78,7 +78,7 @@ void main()
         }
         else
         {
-            FragColor = ambient_color;
+            FragColor = vec4(ambient_color, 1.0);
             return;
         }
     }
