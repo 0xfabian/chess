@@ -52,9 +52,11 @@ public:
     void movePiece(Square* from, Square* to);
     vector<Square> generateMoves(Square*);
     bool isCheck(Color color);
-    bool isUnderAttack(int x, int y, Color color);
+    bool squareAttacked(int x, int y, Color color);
     bool hasAnyValidMove(Color color);
     void generateValidMoves(Square*);
+    void addSpecialMoves(Square* s);
+    void checkSpecialMoves(Square* move);
     void click(int x, int y);
     Square* getSelected();
     vector<Square> getValidMoves();
