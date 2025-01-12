@@ -116,35 +116,35 @@ void lighting_pass()
         }
     }
 
-    // glClear(GL_DEPTH_BUFFER_BIT);
+    glClear(GL_DEPTH_BUFFER_BIT);
 
-    // solid_shader.upload_mat4("model_mat", mat4(1));
-    // solid_shader.upload_int("white", 2);
-    // board_model.draw();
+    solid_shader.upload_mat4("model_mat", mat4(1));
+    solid_shader.upload_int("white", 2);
+    board_model.draw();
 
-    // solid_shader.upload_int("reflection", 0);
+    solid_shader.upload_int("reflection", 0);
 
-    // for (int y = 0; y < 8; y++)
-    // {
-    //     for (int x = 0; x < 8; x++)
-    //     {
-    //         Square* square = board.getSquare(x, y);
+    for (int y = 0; y < 8; y++)
+    {
+        for (int x = 0; x < 8; x++)
+        {
+            Square* square = board.getSquare(x, y);
 
-    //         if (square->isEmpty())
-    //             continue;
+            if (square->isEmpty())
+                continue;
 
-    //         Piece piece = square->getPiece();
-    //         Color color = square->getColor();
-    //         Mesh* model = &models[piece];
+            Piece piece = square->getPiece();
+            Color color = square->getColor();
+            Mesh* model = &models[piece];
 
-    //         mat4 model_mat = translate(mat4(1), vec3(x - 4 + 0.5, 0, y - 4 + 0.5));
+            mat4 model_mat = translate(mat4(1), vec3(x - 4 + 0.5, 0, y - 4 + 0.5));
 
-    //         solid_shader.upload_mat4("model_mat", model_mat);
-    //         solid_shader.upload_int("white", color);
+            solid_shader.upload_mat4("model_mat", model_mat);
+            solid_shader.upload_int("white", color);
 
-    //         model->draw();
-    //     }
-    // }
+            model->draw();
+        }
+    }
 }
 
 void App::init()
