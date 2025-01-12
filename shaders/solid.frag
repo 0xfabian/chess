@@ -10,6 +10,8 @@ uniform vec3 eye;
 uniform vec3 light;
 uniform sampler2D shadow_map;
 uniform sampler3D offset_texture;
+uniform samplerCube irradiance_map;
+uniform samplerCube env_map;
 
 uniform int white;
 
@@ -102,50 +104,94 @@ float calc_shadow(vec4 light_space_pos)
     return 1 - shadow;
 }
 
+float ndf_ggx(float n_dot_h, float roughness)
+{
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float denom = (n_dot_h * n_dot_h * (a2 - 1) + 1);
+
+    return a2 / (3.14159 * denom * denom);
+}
+
+vec3 fresenl_schlick(float cos_theta, vec3 f0)
+{
+    return f0 + (1 - f0) * pow(1 - cos_theta, 5);
+}
+
+float geometry_smith(float n_dot_l, float n_dot_v, float roughness)
+{
+    float r = roughness + 1;
+    float k = (r * r) / 8;
+
+    float ggx1 = n_dot_l / (n_dot_l * (1 - k) + k);
+    float ggx2 = n_dot_v / (n_dot_v * (1 - k) + k);
+
+    return ggx1 * ggx2;
+}
+
+vec3 calc_pbr(vec3 n, vec3 v, vec3 l, vec3 albedo, float metalic, float roughness)
+{
+    vec3 h = normalize(v + l);
+
+    float n_dot_l = max(dot(n, l), 0);
+    float n_dot_v = max(dot(n, v), 0);
+    float n_dot_h = max(dot(n, h), 0);
+    float v_dot_h = max(dot(v, h), 0);
+
+    float attenuation = 400 / pow(length(light - wpos), 2);
+
+    vec3 f0 = mix(vec3(0.04), albedo, metalic);
+
+    float d = ndf_ggx(n_dot_h, roughness);
+    float g = geometry_smith(n_dot_l, n_dot_h, roughness);
+    vec3 f = fresenl_schlick(n_dot_h, f0);
+
+    vec3 cook_torrance = d * g * f / (4 * n_dot_l * n_dot_v + 0.001);
+
+    vec3 kd = (vec3(1) - f) * (1 - metalic);
+    vec3 diffuse = kd * albedo / 3.14159;
+    vec3 brdf = diffuse + cook_torrance;
+
+    return brdf * n_dot_l * attenuation;
+}
+
 void main()
 {
     vec3 n = normalize(norm);
+    vec3 v = normalize(eye - wpos);
+    vec3 l = normalize(light - wpos);
 
-    vec3 to_light = normalize(light - wpos);
-    vec3 view_dir = -normalize(eye);
+    vec3 albedo = vec3(0);
+    float metalic = 0;
+    float roughness = 0.2;
 
-    vec3 black_color = vec3(0, 0.2, 1);
-    vec3 white_color = vec3(1, 0, 0);
-    vec3 check_black_color = vec3(0.02);
-    vec3 check_white_color = vec3(1);
-    vec3 ambient_color = vec3(0.7, 0.8, 0.9);
-
-    vec3 color = black_color;
-
+    if (white == 0)
+    {
+        albedo = vec3(0);
+        metalic = 0;
+    }
     if (white == 1)
-        color = white_color;
+    {
+        albedo = vec3(1);
+        metalic = 0;
+    }
     else if (white == 2)
     {
-        if (wpos.x > -4 && wpos.x < 4 && wpos.z > -4 && wpos.z < 4)
-        {
-            float t = checkerboard(wpos.xz, vec2(0.01, 0), vec2(0, 0.01));
-            color = mix(check_black_color, check_white_color, t);
-        }
-        else
-        {
-            FragColor = vec4(ambient_color, 1.0);
-            return;
-        }
+        float t = checkerboard(wpos.xz, vec2(0.01, 0), vec2(0, 0.01));
+        albedo = mix(vec3(0), vec3(1), t);
     }
 
-    float att = 100 / pow(length(light - wpos), 2);
-
-    vec3 ambient = 0.1 * color * ambient_color;
-    vec3 diffuse = color * max(dot(to_light, n), 0.0) * att;
-    vec3 spec = vec3(1) * pow(max(dot(reflect(to_light, n), view_dir), 0.0), 50.0) * att;
+    vec3 direct = calc_pbr(n, v, l, albedo, metalic, roughness);
     float shadow = calc_shadow_rs(lpos);
 
-    vec3 final = ambient + shadow * (diffuse + spec);
+    vec3 ks = fresenl_schlick(max(dot(n, v), 0), vec3(0.04));
+    vec3 kd = (vec3(1) - ks) * (1 - metalic);
+    vec3 ambient = 0.5 * kd * albedo * texture(irradiance_map, n).rgb;
 
-    float alpha = 1.0;
+    vec3 final = ambient + shadow * direct + ks * texture(env_map, reflect(-v, n)).rgb;
 
-    if (white == 2)
-        alpha = 0.7;
+    final = final / (final + vec3(1));
+    final = pow(final, vec3(1 / 2.2));
 
-    FragColor = vec4(pow(final, vec3(1 / 2.2)), alpha);
+    FragColor = vec4(final, 1);
 }
