@@ -21,6 +21,17 @@ GLuint create_shader(const std::string& path, GLenum type)
     if (compiled != GL_TRUE)
     {
         std::cerr << "Failed to compile " << path << std::endl;
+
+        GLint log_length;
+        glGetShaderiv(id, GL_INFO_LOG_LENGTH, &log_length);
+
+        char* log = (char*)malloc(log_length);
+        glGetShaderInfoLog(id, log_length, 0, log);
+
+        std::cerr << log << std::endl;
+
+        free(log);
+
         exit(2);
     }
 

@@ -1,5 +1,8 @@
 #include <app.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 using namespace std;
 using namespace glm;
 
@@ -12,9 +15,13 @@ mat4 light_mat;
 
 Shader solid_shader;
 Shader shadow_shader;
+Shader skybox_shader;
+Shader to_cubemap_shader;
+Shader conv_shader;
 
 Mesh models[6];
 Mesh board_model;
+Mesh skybox_model;
 Board board;
 
 GLuint shadow_fbo;
@@ -23,6 +30,113 @@ GLuint offset_texture;
 int shadow_map_size = 2048;
 int window_size = 16;
 int filter_size = 8;
+
+GLuint capture_fbo;
+GLuint env_map;
+GLuint irradiance_map;
+
+Mesh test_sphere;
+
+void load_environment()
+{
+    stbi_set_flip_vertically_on_load(true);
+
+    GLuint hdr_texture;
+    int widht, height, channels;
+    float* data = stbi_loadf("assets/env.hdr", &widht, &height, &channels, 0);
+
+    if (data)
+    {
+        glGenTextures(1, &hdr_texture);
+        glBindTexture(GL_TEXTURE_2D, hdr_texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, widht, height, 0, GL_RGB, GL_FLOAT, data);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        stbi_image_free(data);
+    }
+
+    glGenFramebuffers(1, &capture_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, capture_fbo);
+
+    glGenTextures(1, &env_map);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, env_map);
+
+    for (int i = 0; i < 6; i++)
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 512, 512, 0, GL_RGB, GL_FLOAT, nullptr);
+
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    mat4 capture_projection = perspective(radians(90.0f), 1.0f, 0.1f, 10.0f);
+    mat4 capture_views[] =
+    {
+        lookAt(vec3(0), vec3(1, 0, 0), vec3(0, -1, 0)),
+        lookAt(vec3(0), vec3(-1, 0, 0), vec3(0, -1, 0)),
+        lookAt(vec3(0), vec3(0, 1, 0), vec3(0, 0, 1)),
+        lookAt(vec3(0), vec3(0, -1, 0), vec3(0, 0, -1)),
+        lookAt(vec3(0), vec3(0, 0, 1), vec3(0, -1, 0)),
+        lookAt(vec3(0), vec3(0, 0, -1), vec3(0, -1, 0))
+    };
+
+    to_cubemap_shader.bind();
+    to_cubemap_shader.upload_mat4("projection", capture_projection);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, hdr_texture);
+    to_cubemap_shader.upload_int("env", 0);
+
+    glViewport(0, 0, 512, 512);
+    glBindFramebuffer(GL_FRAMEBUFFER, capture_fbo);
+
+    for (int i = 0; i < 6; i++)
+    {
+        to_cubemap_shader.upload_mat4("view", capture_views[i]);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, env_map, 0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        skybox_model.draw();
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glGenTextures(1, &irradiance_map);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, irradiance_map);
+
+    for (int i = 0; i < 6; i++)
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 32, 32, 0, GL_RGB, GL_FLOAT, nullptr);
+
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    conv_shader.bind();
+    conv_shader.upload_mat4("projection", capture_projection);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, env_map);
+    conv_shader.upload_int("env", 0);
+
+    glViewport(0, 0, 32, 32);
+    glBindFramebuffer(GL_FRAMEBUFFER, capture_fbo);
+
+    for (int i = 0; i < 6; i++)
+    {
+        conv_shader.upload_mat4("view", capture_views[i]);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, irradiance_map, 0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        skybox_model.draw();
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
 
 vector<float> generate_offset_data()
 {
@@ -126,6 +240,19 @@ void lighting_pass()
     glViewport(0, 0, window.width, window.height);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    glDepthMask(GL_FALSE);
+
+    skybox_shader.bind();
+    skybox_shader.upload_mat4("cam_mat", cam.get_view_matrix_no_translation());
+
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, env_map);
+    skybox_shader.upload_int("skybox", 3);
+
+    skybox_model.draw();
+
+    glDepthMask(GL_TRUE);
+
     solid_shader.bind();
     solid_shader.upload_vec3("eye", cam.get_position());
     solid_shader.upload_mat4("cam_mat", cam.get_view_matrix());
@@ -140,33 +267,39 @@ void lighting_pass()
     glBindTexture(GL_TEXTURE_3D, offset_texture);
     solid_shader.upload_int("offset_texture", 2);
 
-    glDisable(GL_CULL_FACE);
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, irradiance_map);
+    solid_shader.upload_int("irradiance_map", 3);
 
-    solid_shader.upload_int("reflection", 1);
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, env_map);
+    solid_shader.upload_int("env_map", 4);
 
-    for (int y = 0; y < 8; y++)
-    {
-        for (int x = 0; x < 8; x++)
-        {
-            Square* square = board.getSquare(x, y);
+    // solid_shader.upload_int("reflection", 1);
 
-            if (square->isEmpty())
-                continue;
+    // for (int y = 0; y < 8; y++)
+    // {
+    //     for (int x = 0; x < 8; x++)
+    //     {
+    //         Square* square = board.getSquare(x, y);
 
-            Piece piece = square->getPiece();
-            Color color = square->getColor();
-            Mesh* model = &models[piece];
+    //         if (square->isEmpty())
+    //             continue;
 
-            mat4 model_mat = translate(mat4(1), vec3(x - 4 + 0.5, 0, y - 4 + 0.5));
+    //         Piece piece = square->getPiece();
+    //         Color color = square->getColor();
+    //         Mesh* model = &models[piece];
 
-            solid_shader.upload_mat4("model_mat", model_mat);
-            solid_shader.upload_int("white", color);
+    //         mat4 model_mat = translate(mat4(1), vec3(x - 4 + 0.5, 0, y - 4 + 0.5));
 
-            model->draw();
-        }
-    }
+    //         solid_shader.upload_mat4("model_mat", model_mat);
+    //         solid_shader.upload_int("white", color);
 
-    glClear(GL_DEPTH_BUFFER_BIT);
+    //         model->draw();
+    //     }
+    // }
+
+    // glClear(GL_DEPTH_BUFFER_BIT);
 
     solid_shader.upload_mat4("model_mat", mat4(1));
     solid_shader.upload_int("white", 2);
@@ -195,11 +328,15 @@ void lighting_pass()
             model->draw();
         }
     }
+
+    // solid_shader.upload_mat4("model_mat", mat4(1));
+    // solid_shader.upload_int("white", 0);
+    // test_sphere.draw();
 }
 
 void App::init()
 {
-    glClearColor(0.7, 0.8, 0.9, 1);
+    glClearColor(0, 0, 0, 1);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -209,14 +346,21 @@ void App::init()
 
     solid_shader = Shader("solid");
     shadow_shader = Shader("shadow");
+    skybox_shader = Shader("skybox");
+    to_cubemap_shader = Shader("to_cubemap");
+    conv_shader = Shader("conv");
 
-    models[0].load("models/king.obj");
-    models[1].load("models/queen.obj");
-    models[2].load("models/bishop.obj");
-    models[3].load("models/knight.obj");
-    models[4].load("models/rook.obj");
-    models[5].load("models/pawn.obj");
-    board_model.load("models/board.obj");
+    models[0].load("assets/king.obj");
+    models[1].load("assets/queen.obj");
+    models[2].load("assets/bishop.obj");
+    models[3].load("assets/knight.obj");
+    models[4].load("assets/rook.obj");
+    models[5].load("assets/pawn.obj");
+    board_model.load("assets/board.obj");
+    skybox_model.load("assets/skybox.obj");
+    test_sphere.load("assets/sphere.obj");
+
+    load_environment();
 
     shadow_mapping_init();
 
@@ -342,7 +486,15 @@ void App::clean()
 
     solid_shader.destroy();
     shadow_shader.destroy();
+    skybox_shader.destroy();
+    to_cubemap_shader.destroy();
+    conv_shader.destroy();
 
     glDeleteTextures(1, &shadow_map);
+    glDeleteTextures(1, &offset_texture);
     glDeleteFramebuffers(1, &shadow_fbo);
+
+    glDeleteTextures(1, &env_map);
+    glDeleteTextures(1, &irradiance_map);
+    glDeleteFramebuffers(1, &capture_fbo);
 }

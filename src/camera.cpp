@@ -24,6 +24,18 @@ mat4 Camera::get_view_matrix()
     return perspective_mat * view_mat;
 }
 
+mat4 Camera::get_view_matrix_no_translation()
+{
+    vec3 pos = get_position();
+
+    mat4 perspective_mat = perspective(radians(fov), aspect_ratio, near, far);
+    perspective_mat[0][0] *= -1;
+
+    mat4 view_mat = mat3(lookAt(pos, vec3(0), vec3(0, 1, 0)));
+
+    return perspective_mat * view_mat;
+}
+
 void Camera::orbit(float dx, float dy)
 {
     theta -= dx;

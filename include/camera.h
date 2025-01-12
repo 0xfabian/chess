@@ -20,6 +20,7 @@ struct Camera
 
     glm::vec3 get_position();
     glm::mat4 get_view_matrix();
+    glm::mat4 get_view_matrix_no_translation();
 
     void orbit(float dx, float dy);
     void zoom(int delta);
