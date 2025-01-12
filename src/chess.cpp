@@ -57,21 +57,21 @@ Board::Board() {
     }
 
     square[0][0].setPieceAndColor(ROOK, WHITE);
-    //square[0][1].setPieceAndColor(KNIGHT, WHITE);
-    //square[0][2].setPieceAndColor(BISHOP, WHITE);
-    //square[0][3].setPieceAndColor(QUEEN, WHITE);
+    square[0][1].setPieceAndColor(KNIGHT, WHITE);
+    square[0][2].setPieceAndColor(BISHOP, WHITE);
+    square[0][3].setPieceAndColor(QUEEN, WHITE);
     square[0][4].setPieceAndColor(KING, WHITE);
-    //square[0][5].setPieceAndColor(BISHOP, WHITE);
-    //square[0][6].setPieceAndColor(KNIGHT, WHITE);
+    square[0][5].setPieceAndColor(BISHOP, WHITE);
+    square[0][6].setPieceAndColor(KNIGHT, WHITE);
     square[0][7].setPieceAndColor(ROOK, WHITE);
 
     square[7][0].setPieceAndColor(ROOK, BLACK);
-    //square[7][1].setPieceAndColor(KNIGHT, BLACK);
-    //square[7][2].setPieceAndColor(BISHOP, BLACK);
-    //square[7][3].setPieceAndColor(QUEEN, BLACK);
+    square[7][1].setPieceAndColor(KNIGHT, BLACK);
+    square[7][2].setPieceAndColor(BISHOP, BLACK);
+    square[7][3].setPieceAndColor(QUEEN, BLACK);
     square[7][4].setPieceAndColor(KING, BLACK);
-    //square[7][5].setPieceAndColor(BISHOP, BLACK);
-    //square[7][6].setPieceAndColor(KNIGHT, BLACK);
+    square[7][5].setPieceAndColor(BISHOP, BLACK);
+    square[7][6].setPieceAndColor(KNIGHT, BLACK);
     square[7][7].setPieceAndColor(ROOK, BLACK);
 }
 

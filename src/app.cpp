@@ -306,7 +306,7 @@ void draw_square(int x, int y, vec3 color, float scale = 0.8)
     vec3 off = vec3(x - 4 + (1 - scale) / 2.0, 0.1, y - 4 + (1 - scale) / 2.0);
 
     if (x == board_x && y == board_y)
-        color = vec3(1);
+        color = vec3(1, 0, 0);
 
     line(vec3(0, 0, 0) + off, vec3(scale, 0, 0) + off, color);
     line(vec3(scale, 0, 0) + off, vec3(scale, 0, scale) + off, color);
@@ -329,7 +329,7 @@ void App::draw()
     }
 
     if (on_board)
-        draw_square(board_x, board_y, vec3(1));
+        draw_square(board_x, board_y, vec3(1, 0, 0));
 
     shadow_pass();
     lighting_pass();

@@ -109,7 +109,7 @@ void main()
     vec3 to_light = normalize(light - wpos);
     vec3 view_dir = -normalize(eye);
 
-    vec3 black_color = vec3(0, 0.5, 0);
+    vec3 black_color = vec3(0, 0.2, 1);
     vec3 white_color = vec3(1, 0, 0);
     vec3 check_black_color = vec3(0.02);
     vec3 check_white_color = vec3(1);

@@ -44,9 +44,6 @@ void core::init(int width, int height, const char* name)
 
     gladLoadGLLoader(SDL_GL_GetProcAddress);
 
-    Uint64 this_frame = SDL_GetPerformanceCounter();
-    Uint64 last_frame = 0;
-
     cam.set_aspect(window.width, window.height);
 
     line_shader = Shader("line");

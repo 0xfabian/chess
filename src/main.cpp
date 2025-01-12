@@ -2,9 +2,6 @@
 #include <core.h>
 #include <app.h>
 
-using namespace std;
-using namespace glm;
-
 int main(int argc, char** argv)
 {
     App app;
