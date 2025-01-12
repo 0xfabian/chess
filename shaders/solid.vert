@@ -16,28 +16,21 @@ uniform int reflection;
 
 void main()
 {
-    vec4 p = vec4(pos, 1.0f);
+    norm = normal;
 
-    if (reflection == 1)
-        p.y *= -1;
+    vec4 p = vec4(pos, 1.0f);
 
     if (white == 0)
     {
         p.z *= -1;
-    }
-    else if (white == 2)
-    {
-        p.x *= 3;
-        p.z *= 3;
+        norm.z *= -1;
     }
 
     wpos = vec3(model_mat * p);
     lpos = light_mat * model_mat * p;
 
-    gl_Position = cam_mat * model_mat * p;
+    if (reflection == 1)
+        wpos.y *= -1;
 
-    norm = normal;
-
-    if (white == 0)
-        norm.z *= -1;
+    gl_Position = cam_mat * vec4(wpos, 1.0);
 }

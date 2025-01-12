@@ -9,18 +9,71 @@ out vec4 FragColor;
 uniform vec3 eye;
 uniform vec3 light;
 uniform sampler2D shadow_map;
+uniform sampler3D offset_texture;
 
 uniform int white;
-uniform int reflection;
 
 float checkerboard(in vec2 p, in vec2 ddx, in vec2 ddy)
 {
-    // filter kernel
     vec2 w = max(abs(ddx), abs(ddy)) + 0.01;  
-    // analytical integral (box filter)
-    vec2 i = 2.0*(abs(fract((p-0.5*w)/2.0)-0.5)-abs(fract((p+0.5*w)/2.0)-0.5))/w;
-    // xor pattern
-    return 0.5 - 0.5*i.x*i.y;                  
+    vec2 i = 2.0 * (abs(fract((p - 0.5 * w) / 2.0) - 0.5) - abs(fract((p + 0.5 * w) / 2.0) - 0.5)) / w;
+
+    return 0.5 - 0.5 * i.x * i.y;                  
+}
+
+float calc_shadow_rs(vec4 light_space_pos)
+{
+    vec3 proj_coords = light_space_pos.xyz / light_space_pos.w;
+    proj_coords = proj_coords * 0.5 + 0.5;
+
+    float current = proj_coords.z;
+
+    ivec3 offset_coord;
+    // 16 <- window_size
+    vec2 f = mod(gl_FragCoord.xy, vec2(16));
+    offset_coord.yz = ivec2(f);
+
+    vec2 texel = 1.0 / textureSize(shadow_map, 0);
+
+    float sum = 0;
+    float depth = 0;
+    float radius = 5;
+    float bias = 0.0005;
+
+    for (int i = 0; i < 4; i++)
+    {
+        offset_coord.x = i;
+        vec4 offset = texelFetch(offset_texture, offset_coord, 0) * radius;
+
+        depth = texture(shadow_map, proj_coords.xy + offset.rg * texel).r;
+        sum += (depth + bias < current) ? 0.0 : 1.0;
+
+        depth = texture(shadow_map, proj_coords.xy + offset.ba * texel).r;
+        sum += (depth + bias < current) ? 0.0 : 1.0;
+    }
+
+    float shadow = sum / 8.0;
+
+    if (shadow != 0.0 && shadow != 1.0)
+    {
+        // 32 <- samples / 2
+        for (int i = 4; i < 32; i++)
+        {
+            offset_coord.x = i;
+            vec4 offset = texelFetch(offset_texture, offset_coord, 0) * radius;
+
+            depth = texture(shadow_map, proj_coords.xy + offset.rg * texel).r;
+            sum += (depth + bias < current) ? 0.0 : 1.0;
+
+            depth = texture(shadow_map, proj_coords.xy + offset.ba * texel).r;
+            sum += (depth + bias < current) ? 0.0 : 1.0;
+        }
+
+        shadow = sum / 64;
+        // 64 <- samples = filter_size ^ 2
+    }
+
+    return shadow;
 }
 
 float calc_shadow(vec4 light_space_pos)
@@ -28,13 +81,11 @@ float calc_shadow(vec4 light_space_pos)
     vec3 proj_coords = light_space_pos.xyz / light_space_pos.w;
     proj_coords = proj_coords * 0.5 + 0.5;
 
-    // float closest = texture(shadow_map, proj_coords.xy).r;
     float current = proj_coords.z;
 
     float shadow = 0.0;
-
     vec2 texel_size = 1.0 / textureSize(shadow_map, 0);
-    int kernel = 5;
+    int kernel = 15;
     int sz = kernel / 2;
 
     for(int x = -sz; x <= sz; ++x)
@@ -45,11 +96,10 @@ float calc_shadow(vec4 light_space_pos)
             shadow += current - 0.0005 > pcfDepth ? 1.0 : 0.0;        
         }    
     }
+
     shadow /= kernel * kernel;
 
     return 1 - shadow;
-
-    // return (current - 0.0000 > closest) ? 0.5 : 1.0;  
 }
 
 void main()
@@ -59,8 +109,8 @@ void main()
     vec3 to_light = normalize(light - wpos);
     vec3 view_dir = -normalize(eye);
 
-    vec3 black_color = vec3(0, 0.5,0);
-    vec3 white_color = vec3(1,0,0);
+    vec3 black_color = vec3(0, 0.5, 0);
+    vec3 white_color = vec3(1, 0, 0);
     vec3 check_black_color = vec3(0.02);
     vec3 check_white_color = vec3(1);
     vec3 ambient_color = vec3(0.7, 0.8, 0.9);
@@ -88,14 +138,14 @@ void main()
     vec3 ambient = 0.1 * color * ambient_color;
     vec3 diffuse = color * max(dot(to_light, n), 0.0) * att;
     vec3 spec = vec3(1) * pow(max(dot(reflect(to_light, n), view_dir), 0.0), 50.0) * att;
-    float shadow = calc_shadow(lpos);
+    float shadow = calc_shadow_rs(lpos);
 
     vec3 final = ambient + shadow * (diffuse + spec);
 
     float alpha = 1.0;
 
     if (white == 2)
-         alpha = 0.7;
+        alpha = 0.7;
 
     FragColor = vec4(pow(final, vec3(1 / 2.2)), alpha);
 }
