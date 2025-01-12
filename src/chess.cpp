@@ -99,6 +99,16 @@ GAME_STATE Board::getGameState() {
     return game_state;
 }
 
+vector<Piece> Board::getCapuredWhitePieces() {
+    sort(capuredWhitePieces.begin(), capuredWhitePieces.end());
+    return capuredWhitePieces;
+}
+
+vector<Piece> Board::getCapuredBlackPieces() {
+    sort(capuredBlackPieces.begin(), capuredBlackPieces.end());
+    return capuredBlackPieces;
+}
+
 void Board::printBoard() {
     for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {
@@ -426,8 +436,11 @@ void Board::checkSpecialMoves(Square* move)
     }
 }
 
+// bool operator<(const Piece& a, const Piece& b)
+// {
+//     return a < b;
+// }
 void Board::click(int x, int y) {  
-
     Square* s = &square[y][x];
     if (selected == nullptr)
     {
@@ -443,6 +456,14 @@ void Board::click(int x, int y) {
             if (move.getX() == x && move.getY() == y)
             {
                 checkSpecialMoves(&move);
+                if(move.getPiece() != EMPTY)
+                {
+                    if(move.getColor() == WHITE)
+                        capuredWhitePieces.push_back(move.getPiece());
+                    else
+                        capuredBlackPieces.push_back(move.getPiece());
+
+                }
                 movePiece(selected, &move);
                 clearSelected();
                 turn = (turn == WHITE) ? BLACK : WHITE;

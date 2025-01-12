@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 using namespace std;
 
@@ -38,6 +39,8 @@ class Board
     vector <Square> validMoves;
     GAME_STATE game_state = ONGOING;
     Square* enPassant = nullptr;
+    vector<Piece> capuredWhitePieces;
+    vector<Piece> capuredBlackPieces;
     bool castlingWhiteKing = true;
     bool castlingWhiteQueen = true;
     bool castlingBlackKing = true;
@@ -68,4 +71,6 @@ public:
     vector<Square> generateKnightMoves(int x, int y);
     vector<Square> generateRookMoves(int x, int y);
     vector<Square> generatePawnMoves(int x, int y);
+    vector<Piece> getCapuredWhitePieces();
+    vector<Piece> getCapuredBlackPieces();
 };
