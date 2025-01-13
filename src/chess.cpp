@@ -399,7 +399,14 @@ void Board::checkSpecialMoves(Square* move)
     int dir = (turn == WHITE) ? 1 : -1;
 
     if(enPassant != nullptr && selected->getPiece() == PAWN && move->getX() == enPassant->getX() && move->getY() == enPassant->getY() + dir)
+    {
+        if(turn == WHITE)
+            capuredBlackPieces.push_back(enPassant->getPiece());
+        else
+            capuredWhitePieces.push_back(enPassant->getPiece());
         square[enPassant->getY()][enPassant->getX()].setEmpty();
+    }
+
 
     if(selected->getPiece() == PAWN && abs(selected->getY() - move->getY()) == 2)
         enPassant = &square[move->getY()][move->getX()];
@@ -436,10 +443,7 @@ void Board::checkSpecialMoves(Square* move)
     }
 }
 
-// bool operator<(const Piece& a, const Piece& b)
-// {
-//     return a < b;
-// }
+
 void Board::click(int x, int y) {  
     Square* s = &square[y][x];
     if (selected == nullptr)
@@ -452,6 +456,7 @@ void Board::click(int x, int y) {
     }
     else
     {
+
         for (auto& move : validMoves)
             if (move.getX() == x && move.getY() == y)
             {
@@ -476,7 +481,7 @@ void Board::click(int x, int y) {
                 return;
             }
 
-        if (!s->isEmpty() && s->getColor() == turn) {
+        if (!s->isEmpty() && s->getColor() == turn && s != selected) {
             selected = s;
             generateValidMoves(selected);
             addSpecialMoves(selected);
