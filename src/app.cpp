@@ -52,7 +52,7 @@ void load_environment()
 
     GLuint hdr_texture;
     int widht, height, channels;
-    float* data = stbi_loadf("assets/env.hdr", &widht, &height, &channels, 0);
+    float* data = stbi_loadf("assets/room2.hdr", &widht, &height, &channels, 0);
 
     if (data)
     {

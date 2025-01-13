@@ -218,30 +218,31 @@ void main()
 
     if (white == 0)
     {
-        // albedo = vec3(0.56, 0.57, 0.58);
-        // metalic = 1;
-        // roughness = 0.2;
-
-        albedo = vec3(0);
-        metalic = 0;
+        albedo = vec3(0.56, 0.57, 0.58);
+        metalic = 1;
         roughness = 0.2;
+
+        // albedo = vec3(0);
+        // metalic = 0;
+        // roughness = 0.2;
     }
     if (white == 1)
     {
-        // albedo = vec3(0.95, 0.64, 0.54);
-        // metalic = 1;
-        // roughness = 0.2;
-
-        albedo = vec3(1);
-        metalic = 0;
+        albedo = vec3(0.95, 0.64, 0.54);
+        metalic = 1;
         roughness = 0.2;
+
+        // albedo = vec3(1);
+        // metalic = 0;
+        // roughness = 0.2;
     }
     else if (white == 2)
     {
         float t = checkerboard(wpos.xz, vec2(0.01, 0), vec2(0, 0.01));
 
-        albedo = mix(vec3(0), vec3(1), t);
-        metalic = 0;
+        albedo = mix(vec3(0.2), vec3(1), t);
+        // metalic = 0;
+        metalic = 1;
         roughness = 0.2;
     }
 
