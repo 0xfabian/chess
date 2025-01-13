@@ -25,7 +25,7 @@ void main()
         p.z *= -1;
         norm.z *= -1;
     }
-
+    
     wpos = vec3(model_mat * p);
     lpos = light_mat * model_mat * p;
 

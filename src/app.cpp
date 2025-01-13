@@ -18,6 +18,8 @@ Shader shadow_shader;
 Shader skybox_shader;
 Shader to_cubemap_shader;
 Shader conv_shader;
+Shader prefilter_shader;
+Shader brdf_lut_shader;
 
 Mesh models[6];
 Mesh board_model;
@@ -34,16 +36,23 @@ int filter_size = 8;
 GLuint capture_fbo;
 GLuint env_map;
 GLuint irradiance_map;
+GLuint prefilter_map;
+GLuint brdf_lut;
+
+GLuint reflection_texture;
+GLuint reflection_rbo;
 
 Mesh test_sphere;
 
 void load_environment()
 {
+    cout << "Loading assets/env.hdr ..." << endl;
+
     stbi_set_flip_vertically_on_load(true);
 
     GLuint hdr_texture;
     int widht, height, channels;
-    float* data = stbi_loadf("assets/env.hdr", &widht, &height, &channels, 0);
+    float* data = stbi_loadf("assets/room2.hdr", &widht, &height, &channels, 0);
 
     if (data)
     {
@@ -59,6 +68,9 @@ void load_environment()
         stbi_image_free(data);
     }
 
+    cout << "Done" << endl;
+    cout << "Generating environment cubemap ..." << endl;
+
     glGenFramebuffers(1, &capture_fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, capture_fbo);
 
@@ -68,7 +80,7 @@ void load_environment()
     for (int i = 0; i < 6; i++)
         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 512, 512, 0, GL_RGB, GL_FLOAT, nullptr);
 
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -103,7 +115,12 @@ void load_environment()
         skybox_model.draw();
     }
 
+    glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    cout << "Done" << endl;
+    cout << "Generating irradiance map ..." << endl;
 
     glGenTextures(1, &irradiance_map);
     glBindTexture(GL_TEXTURE_CUBE_MAP, irradiance_map);
@@ -136,6 +153,106 @@ void load_environment()
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    cout << "Done" << endl;
+    cout << "Generating prefilter map ..." << endl;
+
+    glGenTextures(1, &prefilter_map);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, prefilter_map);
+
+    for (int i = 0; i < 6; i++)
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB16F, 128, 128, 0, GL_RGB, GL_FLOAT, nullptr);
+
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+
+    prefilter_shader.bind();
+    prefilter_shader.upload_mat4("projection", capture_projection);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, env_map);
+    prefilter_shader.upload_int("env", 0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, capture_fbo);
+
+    for (int mip = 0; mip < 5; mip++)
+    {
+        unsigned int mip_size = 128 * pow(0.5, mip);
+
+        glViewport(0, 0, mip_size, mip_size);
+
+        float roughness = (float)mip / 4.0;
+        prefilter_shader.upload_float("roughness", roughness);
+
+        for (int i = 0; i < 6; i++)
+        {
+            prefilter_shader.upload_mat4("view", capture_views[i]);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, prefilter_map, mip);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            skybox_model.draw();
+        }
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    cout << "Done" << endl;
+    cout << "Generating BRDF LUT ..." << endl;
+
+    glGenTextures(1, &brdf_lut);
+    glBindTexture(GL_TEXTURE_2D, brdf_lut);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, 512, 512, 0, GL_RG, GL_FLOAT, nullptr);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, capture_fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, brdf_lut, 0);
+
+    glViewport(0, 0, 512, 512);
+
+    brdf_lut_shader.bind();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    vector<Vertex> vertices =
+    {
+        Vertex(vec3(-1.f, -1.f, 0.f), vec3(0, 0, 0)),
+        Vertex(vec3(1.f, -1.f, 0.f), vec3(0, 0, 0)),
+        Vertex(vec3(1.f, 1.f, 0.f), vec3(0, 0, 0)),
+        Vertex(vec3(-1.f, 1.f, 0.f), vec3(0, 0, 0))
+    };
+
+    vector<int> indices = { 0, 1, 2, 0, 2, 3 };
+
+    Mesh quad(vertices, indices);
+    quad.draw();
+    quad.destroy();
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    cout << "Done" << endl;
+}
+
+void create_reflection_texture()
+{
+    glGenTextures(1, &reflection_texture);
+    glBindTexture(GL_TEXTURE_2D, reflection_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, window.width / 2, window.height / 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glGenRenderbuffers(1, &reflection_rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, reflection_rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, window.width / 2, window.height / 2);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
 }
 
 vector<float> generate_offset_data()
@@ -171,7 +288,7 @@ void create_offset_texture()
 
     int samples = filter_size * filter_size;
 
-    glActiveTexture(GL_TEXTURE2);
+    glActiveTexture(GL_TEXTURE0);
     glGenTextures(1, &offset_texture);
     glBindTexture(GL_TEXTURE_3D, offset_texture);
     glTexStorage3D(GL_TEXTURE_3D, 1, GL_RGBA32F, samples / 2, window_size, window_size);
@@ -204,108 +321,40 @@ void shadow_mapping_init()
     create_offset_texture();
 }
 
-void shadow_pass()
+void render_skybox()
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
-    glViewport(0, 0, shadow_map_size, shadow_map_size);
-    glClear(GL_DEPTH_BUFFER_BIT);
-
-    shadow_shader.bind();
-    shadow_shader.upload_mat4("light_mat", light_mat);
-
-    for (int y = 0; y < 8; y++)
-    {
-        for (int x = 0; x < 8; x++)
-        {
-            Square* square = board.getSquare(x, y);
-
-            if (square->isEmpty())
-                continue;
-
-            Piece piece = square->getPiece();
-            Mesh* model = &models[piece];
-
-            mat4 model_mat = translate(mat4(1), vec3(x - 4 + 0.5, 0, y - 4 + 0.5));
-
-            shadow_shader.upload_mat4("model_mat", model_mat);
-
-            model->draw();
-        }
-    }
-}
-
-void lighting_pass()
-{
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(0, 0, window.width, window.height);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
     glDepthMask(GL_FALSE);
 
     skybox_shader.bind();
     skybox_shader.upload_mat4("cam_mat", cam.get_view_matrix_no_translation());
 
-    glActiveTexture(GL_TEXTURE3);
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_CUBE_MAP, env_map);
-    skybox_shader.upload_int("skybox", 3);
+    skybox_shader.upload_int("skybox", 0);
 
     skybox_model.draw();
 
     glDepthMask(GL_TRUE);
+}
 
-    solid_shader.bind();
-    solid_shader.upload_vec3("eye", cam.get_position());
-    solid_shader.upload_mat4("cam_mat", cam.get_view_matrix());
-    solid_shader.upload_vec3("light", light_pos);
-    solid_shader.upload_mat4("light_mat", light_mat);
-
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, shadow_map);
-    solid_shader.upload_int("shadow_map", 1);
-
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_3D, offset_texture);
-    solid_shader.upload_int("offset_texture", 2);
-
-    glActiveTexture(GL_TEXTURE3);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, irradiance_map);
-    solid_shader.upload_int("irradiance_map", 3);
-
-    glActiveTexture(GL_TEXTURE4);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, env_map);
-    solid_shader.upload_int("env_map", 4);
-
-    // solid_shader.upload_int("reflection", 1);
-
-    // for (int y = 0; y < 8; y++)
-    // {
-    //     for (int x = 0; x < 8; x++)
-    //     {
-    //         Square* square = board.getSquare(x, y);
-
-    //         if (square->isEmpty())
-    //             continue;
-
-    //         Piece piece = square->getPiece();
-    //         Color color = square->getColor();
-    //         Mesh* model = &models[piece];
-
-    //         mat4 model_mat = translate(mat4(1), vec3(x - 4 + 0.5, 0, y - 4 + 0.5));
-
-    //         solid_shader.upload_mat4("model_mat", model_mat);
-    //         solid_shader.upload_int("white", color);
-
-    //         model->draw();
-    //     }
-    // }
-
-    // glClear(GL_DEPTH_BUFFER_BIT);
-
+void render_board()
+{
     solid_shader.upload_mat4("model_mat", mat4(1));
     solid_shader.upload_int("white", 2);
     board_model.draw();
+}
 
-    solid_shader.upload_int("reflection", 0);
+enum RenderContext
+{
+    Normal,
+    Reflected,
+    ShadowPass,
+};
+
+void render_pieces(RenderContext context = RenderContext::Normal)
+{
+    if (context != RenderContext::ShadowPass)
+        solid_shader.upload_int("reflection", (int)context);
 
     for (int y = 0; y < 8; y++)
     {
@@ -320,18 +369,97 @@ void lighting_pass()
             Color color = square->getColor();
             Mesh* model = &models[piece];
 
-            mat4 model_mat = translate(mat4(1), vec3(x - 4 + 0.5, 0, y - 4 + 0.5));
+            float up = 0;
 
-            solid_shader.upload_mat4("model_mat", model_mat);
-            solid_shader.upload_int("white", color);
+            if (board.getSelected() == square)
+                up = 0.5;
+
+            mat4 model_mat = translate(mat4(1), vec3(x - 4 + 0.5, up, y - 4 + 0.5));
+
+            if (context == RenderContext::ShadowPass)
+                shadow_shader.upload_mat4("model_mat", model_mat);
+            else
+            {
+                solid_shader.upload_mat4("model_mat", model_mat);
+                solid_shader.upload_int("white", color);
+            }
 
             model->draw();
         }
     }
+}
 
-    // solid_shader.upload_mat4("model_mat", mat4(1));
-    // solid_shader.upload_int("white", 0);
-    // test_sphere.draw();
+void shadow_pass()
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
+    glViewport(0, 0, shadow_map_size, shadow_map_size);
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    shadow_shader.bind();
+    shadow_shader.upload_mat4("light_mat", light_mat);
+
+    render_pieces(RenderContext::ShadowPass);
+}
+
+void lighting_pass()
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, window.width, window.height);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    render_skybox();
+
+    solid_shader.bind();
+    solid_shader.upload_vec3("eye", cam.get_position());
+    solid_shader.upload_mat4("cam_mat", cam.get_view_matrix());
+    solid_shader.upload_vec3("light", light_pos);
+    solid_shader.upload_mat4("light_mat", light_mat);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, shadow_map);
+    solid_shader.upload_int("shadow_map", 0);
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_3D, offset_texture);
+    solid_shader.upload_int("offset_texture", 1);
+
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, irradiance_map);
+    solid_shader.upload_int("irradiance_map", 2);
+
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, prefilter_map);
+    solid_shader.upload_int("prefilter_map", 3);
+
+    glActiveTexture(GL_TEXTURE4);
+    glBindTexture(GL_TEXTURE_2D, brdf_lut);
+    solid_shader.upload_int("brdf_lut", 4);
+
+    glActiveTexture(GL_TEXTURE5);
+    glBindTexture(GL_TEXTURE_2D, reflection_texture);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, capture_fbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, reflection_rbo);
+
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, reflection_rbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, reflection_texture, 0);
+
+    glViewport(0, 0, window.width / 2, window.height / 2);
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearColor(0, 0, 0, 0);
+    render_pieces(RenderContext::Reflected);
+
+    glViewport(0, 0, window.width, window.height);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+    solid_shader.upload_int("reflection_texture", 5);
+
+    render_board();
+
+    render_pieces();
 }
 
 void App::init()
@@ -340,6 +468,7 @@ void App::init()
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
     glLineWidth(3);
 
     SDL_GetMouseState(&last_mx, &last_my);
@@ -349,6 +478,8 @@ void App::init()
     skybox_shader = Shader("skybox");
     to_cubemap_shader = Shader("to_cubemap");
     conv_shader = Shader("conv");
+    prefilter_shader = Shader("prefilter");
+    brdf_lut_shader = Shader("brdf_lut");
 
     models[0].load("assets/king.obj");
     models[1].load("assets/queen.obj");
@@ -361,6 +492,7 @@ void App::init()
     test_sphere.load("assets/sphere.obj");
 
     load_environment();
+    create_reflection_texture();
 
     shadow_mapping_init();
 
@@ -372,21 +504,16 @@ void App::init()
 
 bool rayPlaneIntersection(const vec3& rayOrigin, const vec3& rayDirection, const vec3& planeNormal, float planeD, vec3& hit)
 {
-    // Dot product of plane normal and ray direction
     float denom = dot(planeNormal, rayDirection);
 
-    // Check if ray is parallel to the plane
-    if (abs(denom) < 1e-6)      // Use a small epsilon for floating-point comparison
-        return false;         // No intersection or ray lies in the plane
+    if (abs(denom) < 1e-6)
+        return false;
 
-    // Compute t (intersection parameter)
     float t = -(dot(planeNormal, rayOrigin) + planeD) / denom;
 
-    // If t < 0, the intersection is behind the ray origin
     if (t < 0)
         return false;
 
-    // Compute the intersection point
     vec3 intersectionPoint = rayOrigin + t * rayDirection;
 
     hit = intersectionPoint;
@@ -489,6 +616,8 @@ void App::clean()
     skybox_shader.destroy();
     to_cubemap_shader.destroy();
     conv_shader.destroy();
+    prefilter_shader.destroy();
+    brdf_lut_shader.destroy();
 
     glDeleteTextures(1, &shadow_map);
     glDeleteTextures(1, &offset_texture);
@@ -496,5 +625,10 @@ void App::clean()
 
     glDeleteTextures(1, &env_map);
     glDeleteTextures(1, &irradiance_map);
+    glDeleteTextures(1, &prefilter_map);
+    glDeleteTextures(1, &brdf_lut);
     glDeleteFramebuffers(1, &capture_fbo);
+
+    glDeleteTextures(1, &reflection_texture);
+    glDeleteRenderbuffers(1, &reflection_rbo);
 }
