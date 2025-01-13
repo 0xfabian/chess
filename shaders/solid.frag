@@ -228,7 +228,7 @@ void main()
     }
     if (white == 1)
     {
-        albedo = vec3(0.95, 0.64, 0.54);
+        albedo = vec3(0.95, 0.44, 0.14);
         metalic = 1;
         roughness = 0.2;
 
