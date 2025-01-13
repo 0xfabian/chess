@@ -13,6 +13,7 @@ uniform sampler3D offset_texture;
 uniform samplerCube irradiance_map;
 uniform samplerCube prefilter_map;
 uniform sampler2D brdf_lut;
+uniform sampler2D reflection_texture;
 
 uniform int white;
 
@@ -176,6 +177,29 @@ vec3 calc_ibl(vec3 n, vec3 v, vec3 albedo, float metalic, float roughness)
 
     vec3 prefilter = textureLod(prefilter_map, reflect(-v, n), roughness * 4).rgb;
     vec2 brdf = texture(brdf_lut, vec2(n_dot_v, roughness)).rg;
+
+    if (white == 2)
+    {
+        vec4 sum = vec4(0);
+        int k = 11;
+        int s = k / 2;
+
+        for (int y = -s; y <= s; y++)
+            for (int x = -s; x <= s; x++)
+                sum += texture(reflection_texture, (gl_FragCoord.xy + vec2(x, y)) / vec2(1200, 800));
+
+        sum /= k * k;
+
+        vec3 color = sum.rgb;
+        float alpha = sum.a;
+
+        color /= alpha;
+        color = pow(color, vec3(2.2));
+        color = color / (vec3(1) - color);
+
+        prefilter = mix(prefilter, color, alpha);
+    }
+
     vec3 specular = prefilter * (f * brdf.r + brdf.g);
 
     return diffuse + specular;

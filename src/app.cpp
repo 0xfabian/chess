@@ -39,6 +39,9 @@ GLuint irradiance_map;
 GLuint prefilter_map;
 GLuint brdf_lut;
 
+GLuint reflection_texture;
+GLuint reflection_rbo;
+
 Mesh test_sphere;
 
 void load_environment()
@@ -236,6 +239,22 @@ void load_environment()
     cout << "Done" << endl;
 }
 
+void create_reflection_texture()
+{
+    glGenTextures(1, &reflection_texture);
+    glBindTexture(GL_TEXTURE_2D, reflection_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, window.width / 2, window.height / 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glGenRenderbuffers(1, &reflection_rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, reflection_rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, window.width / 2, window.height / 2);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+}
+
 vector<float> generate_offset_data()
 {
     size_t buffer_size = window_size * window_size * filter_size * filter_size * 2;
@@ -302,36 +321,6 @@ void shadow_mapping_init()
     create_offset_texture();
 }
 
-void shadow_pass()
-{
-    glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
-    glViewport(0, 0, shadow_map_size, shadow_map_size);
-    glClear(GL_DEPTH_BUFFER_BIT);
-
-    shadow_shader.bind();
-    shadow_shader.upload_mat4("light_mat", light_mat);
-
-    for (int y = 0; y < 8; y++)
-    {
-        for (int x = 0; x < 8; x++)
-        {
-            Square* square = board.getSquare(x, y);
-
-            if (square->isEmpty())
-                continue;
-
-            Piece piece = square->getPiece();
-            Mesh* model = &models[piece];
-
-            mat4 model_mat = translate(mat4(1), vec3(x - 4 + 0.5, 0, y - 4 + 0.5));
-
-            shadow_shader.upload_mat4("model_mat", model_mat);
-
-            model->draw();
-        }
-    }
-}
-
 void render_skybox()
 {
     glDepthMask(GL_FALSE);
@@ -346,6 +335,70 @@ void render_skybox()
     skybox_model.draw();
 
     glDepthMask(GL_TRUE);
+}
+
+void render_board()
+{
+    solid_shader.upload_mat4("model_mat", mat4(1));
+    solid_shader.upload_int("white", 2);
+    board_model.draw();
+}
+
+enum RenderContext
+{
+    Normal,
+    Reflected,
+    ShadowPass,
+};
+
+void render_pieces(RenderContext context = RenderContext::Normal)
+{
+    if (context != RenderContext::ShadowPass)
+        solid_shader.upload_int("reflection", (int)context);
+
+    for (int y = 0; y < 8; y++)
+    {
+        for (int x = 0; x < 8; x++)
+        {
+            Square* square = board.getSquare(x, y);
+
+            if (square->isEmpty())
+                continue;
+
+            Piece piece = square->getPiece();
+            Color color = square->getColor();
+            Mesh* model = &models[piece];
+
+            float up = 0;
+
+            if (board.getSelected() == square)
+                up = 0.5;
+
+            mat4 model_mat = translate(mat4(1), vec3(x - 4 + 0.5, up, y - 4 + 0.5));
+
+            if (context == RenderContext::ShadowPass)
+                shadow_shader.upload_mat4("model_mat", model_mat);
+            else
+            {
+                solid_shader.upload_mat4("model_mat", model_mat);
+                solid_shader.upload_int("white", color);
+            }
+
+            model->draw();
+        }
+    }
+}
+
+void shadow_pass()
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, shadow_fbo);
+    glViewport(0, 0, shadow_map_size, shadow_map_size);
+    glClear(GL_DEPTH_BUFFER_BIT);
+
+    shadow_shader.bind();
+    shadow_shader.upload_mat4("light_mat", light_mat);
+
+    render_pieces(RenderContext::ShadowPass);
 }
 
 void lighting_pass()
@@ -382,63 +435,31 @@ void lighting_pass()
     glBindTexture(GL_TEXTURE_2D, brdf_lut);
     solid_shader.upload_int("brdf_lut", 4);
 
-    // solid_shader.upload_int("reflection", 1);
+    glActiveTexture(GL_TEXTURE5);
+    glBindTexture(GL_TEXTURE_2D, reflection_texture);
 
-    // for (int y = 0; y < 8; y++)
-    // {
-    //     for (int x = 0; x < 8; x++)
-    //     {
-    //         Square* square = board.getSquare(x, y);
+    glBindFramebuffer(GL_FRAMEBUFFER, capture_fbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, reflection_rbo);
 
-    //         if (square->isEmpty())
-    //             continue;
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, reflection_rbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, reflection_texture, 0);
 
-    //         Piece piece = square->getPiece();
-    //         Color color = square->getColor();
-    //         Mesh* model = &models[piece];
+    glViewport(0, 0, window.width / 2, window.height / 2);
 
-    //         mat4 model_mat = translate(mat4(1), vec3(x - 4 + 0.5, 0, y - 4 + 0.5));
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearColor(0, 0, 0, 0);
+    render_pieces(RenderContext::Reflected);
 
-    //         solid_shader.upload_mat4("model_mat", model_mat);
-    //         solid_shader.upload_int("white", color);
+    glViewport(0, 0, window.width, window.height);
 
-    //         model->draw();
-    //     }
-    // }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
-    // glClear(GL_DEPTH_BUFFER_BIT);
+    solid_shader.upload_int("reflection_texture", 5);
 
-    solid_shader.upload_mat4("model_mat", mat4(1));
-    solid_shader.upload_int("white", 2);
-    board_model.draw();
+    render_board();
 
-    solid_shader.upload_int("reflection", 0);
-
-    for (int y = 0; y < 8; y++)
-    {
-        for (int x = 0; x < 8; x++)
-        {
-            Square* square = board.getSquare(x, y);
-
-            if (square->isEmpty())
-                continue;
-
-            Piece piece = square->getPiece();
-            Color color = square->getColor();
-            Mesh* model = &models[piece];
-
-            mat4 model_mat = translate(mat4(1), vec3(x - 4 + 0.5, 0, y - 4 + 0.5));
-
-            solid_shader.upload_mat4("model_mat", model_mat);
-            solid_shader.upload_int("white", color);
-
-            model->draw();
-        }
-    }
-
-    // solid_shader.upload_mat4("model_mat", mat4(1));
-    // solid_shader.upload_int("white", 0);
-    // test_sphere.draw();
+    render_pieces();
 }
 
 void App::init()
@@ -471,6 +492,7 @@ void App::init()
     test_sphere.load("assets/sphere.obj");
 
     load_environment();
+    create_reflection_texture();
 
     shadow_mapping_init();
 
@@ -606,4 +628,7 @@ void App::clean()
     glDeleteTextures(1, &prefilter_map);
     glDeleteTextures(1, &brdf_lut);
     glDeleteFramebuffers(1, &capture_fbo);
+
+    glDeleteTextures(1, &reflection_texture);
+    glDeleteRenderbuffers(1, &reflection_rbo);
 }
