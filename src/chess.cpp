@@ -269,7 +269,7 @@ vector<Square> Board::generatePawnMoves(int x, int y)
     if (inside(x, y + dir) && square[y + dir][x].isEmpty())
         moves.push_back(square[y + dir][x]);
 
-    if ((y == 1 || y == 6) && square[y + 2 * dir][x].isEmpty())
+    if ((y == 1 || y == 6) && square[y + 2 * dir][x].isEmpty() && square[y + dir][x].isEmpty())
         moves.push_back(square[y + 2 * dir][x]);
 
     if (inside(x + 1, y + dir) && square[y + dir][x + 1].getColor() != color && !square[y + dir][x + 1].isEmpty())
