@@ -218,14 +218,22 @@ void main()
 
     if (white == 0)
     {
-        albedo = vec3(0.56, 0.57, 0.58);
-        metalic = 1;
+        // albedo = vec3(0.56, 0.57, 0.58);
+        // metalic = 1;
+        // roughness = 0.2;
+
+        albedo = vec3(0);
+        metalic = 0;
         roughness = 0.2;
     }
     if (white == 1)
     {
-        albedo = vec3(0.95, 0.64, 0.54);
-        metalic = 1;
+        // albedo = vec3(0.95, 0.64, 0.54);
+        // metalic = 1;
+        // roughness = 0.2;
+
+        albedo = vec3(1);
+        metalic = 0;
         roughness = 0.2;
     }
     else if (white == 2)
@@ -241,7 +249,7 @@ void main()
     vec3 direct = calc_pbr(n, v, l, albedo, metalic, roughness);
     float shadow = calc_shadow_rs(lpos);
 
-    vec3 final = ambient * ao + direct * shadow;
+    vec3 final = 0.5 * ambient * ao + direct * shadow;
 
     final = final / (final + vec3(1));
     final = pow(final, vec3(1 / 2.2));
