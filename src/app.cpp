@@ -26,6 +26,18 @@ Mesh board_model;
 Mesh skybox_model;
 Board board;
 
+GLuint white_albedo;
+GLuint black_albedo;
+GLuint board_albedo;
+
+GLuint white_normal;
+GLuint black_normal;
+GLuint board_normal;
+
+GLuint white_arm;
+GLuint black_arm;
+GLuint board_arm;
+
 GLuint shadow_fbo;
 GLuint shadow_map;
 GLuint offset_texture;
@@ -42,17 +54,64 @@ GLuint brdf_lut;
 GLuint reflection_texture;
 GLuint reflection_rbo;
 
-Mesh test_sphere;
+GLuint load_texture(const char* path, bool srgb = false)
+{
+    int width, height, channels;
+    unsigned char* data = stbi_load(path, &width, &height, &channels, 0);
+
+    GLuint format = srgb ? GL_SRGB : GL_RGB;
+
+    if (channels == 4)
+        format = srgb ? GL_SRGB_ALPHA : GL_RGBA;
+
+    if (data)
+    {
+        GLuint id;
+        glGenTextures(1, &id);
+        glBindTexture(GL_TEXTURE_2D, id);
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, channels == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, data);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        stbi_image_free(data);
+
+        cout << "Loaded texture " << path << endl;
+        return id;
+    }
+    else
+    {
+        cout << "Failed to load texture " << path << endl;
+        return 0;
+    }
+}
+
+void load_textures()
+{
+    white_albedo = load_texture("assets/textures/white_albedo.png", true);
+    black_albedo = load_texture("assets/textures/black_albedo.png", true);
+    board_albedo = load_texture("assets/textures/board_albedo.png", true);
+
+    white_normal = load_texture("assets/textures/white_normal.png");
+    black_normal = load_texture("assets/textures/black_normal.png");
+    board_normal = load_texture("assets/textures/board_normal.png");
+
+    white_arm = load_texture("assets/textures/white_arm.png");
+    black_arm = load_texture("assets/textures/black_arm.png");
+    board_arm = load_texture("assets/textures/board_arm.png");
+}
 
 void load_environment()
 {
-    cout << "Loading assets/env.hdr ..." << endl;
+    cout << "Loading environment ..." << endl;
 
     stbi_set_flip_vertically_on_load(true);
 
     GLuint hdr_texture;
     int widht, height, channels;
-    float* data = stbi_loadf("assets/room2.hdr", &widht, &height, &channels, 0);
+    float* data = stbi_loadf("assets/env/env.hdr", &widht, &height, &channels, 0);
 
     if (data)
     {
@@ -222,10 +281,10 @@ void load_environment()
 
     vector<Vertex> vertices =
     {
-        Vertex(vec3(-1.f, -1.f, 0.f), vec3(0, 0, 0)),
-        Vertex(vec3(1.f, -1.f, 0.f), vec3(0, 0, 0)),
-        Vertex(vec3(1.f, 1.f, 0.f), vec3(0, 0, 0)),
-        Vertex(vec3(-1.f, 1.f, 0.f), vec3(0, 0, 0))
+        Vertex(vec3(-1.f, -1.f, 0.f)),
+        Vertex(vec3(1.f, -1.f, 0.f)),
+        Vertex(vec3(1.f, 1.f, 0.f)),
+        Vertex(vec3(-1.f, 1.f, 0.f))
     };
 
     vector<int> indices = { 0, 1, 2, 0, 2, 3 };
@@ -339,6 +398,18 @@ void render_skybox()
 
 void render_board()
 {
+    glActiveTexture(GL_TEXTURE6);
+    glBindTexture(GL_TEXTURE_2D, board_albedo);
+    solid_shader.upload_int("albedo_texture", 6);
+
+    glActiveTexture(GL_TEXTURE7);
+    glBindTexture(GL_TEXTURE_2D, board_arm);
+    solid_shader.upload_int("arm_texture", 7);
+
+    glActiveTexture(GL_TEXTURE8);
+    glBindTexture(GL_TEXTURE_2D, board_normal);
+    solid_shader.upload_int("normal_map", 8);
+
     solid_shader.upload_mat4("model_mat", mat4(1));
     solid_shader.upload_int("white", 2);
     board_model.draw();
@@ -347,15 +418,11 @@ void render_board()
 enum RenderContext
 {
     Normal,
-    Reflected,
     ShadowPass,
 };
 
 void render_pieces(RenderContext context = RenderContext::Normal)
 {
-    if (context != RenderContext::ShadowPass)
-        solid_shader.upload_int("reflection", (int)context);
-
     for (int y = 0; y < 8; y++)
     {
         for (int x = 0; x < 8; x++)
@@ -380,6 +447,18 @@ void render_pieces(RenderContext context = RenderContext::Normal)
                 shadow_shader.upload_mat4("model_mat", model_mat);
             else
             {
+                glActiveTexture(GL_TEXTURE6);
+                glBindTexture(GL_TEXTURE_2D, color == WHITE ? white_albedo : black_albedo);
+                solid_shader.upload_int("albedo_texture", 6);
+
+                glActiveTexture(GL_TEXTURE7);
+                glBindTexture(GL_TEXTURE_2D, color == WHITE ? white_arm : black_arm);
+                solid_shader.upload_int("arm_texture", 7);
+
+                glActiveTexture(GL_TEXTURE8);
+                glBindTexture(GL_TEXTURE_2D, color == WHITE ? white_normal : black_normal);
+                solid_shader.upload_int("normal_map", 8);
+
                 solid_shader.upload_mat4("model_mat", model_mat);
                 solid_shader.upload_int("white", color);
             }
@@ -435,6 +514,8 @@ void lighting_pass()
     glBindTexture(GL_TEXTURE_2D, brdf_lut);
     solid_shader.upload_int("brdf_lut", 4);
 
+    solid_shader.upload_int("reflection", 1);
+
     glActiveTexture(GL_TEXTURE5);
     glBindTexture(GL_TEXTURE_2D, reflection_texture);
 
@@ -448,7 +529,7 @@ void lighting_pass()
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0, 0, 0, 0);
-    render_pieces(RenderContext::Reflected);
+    render_pieces();
 
     glViewport(0, 0, window.width, window.height);
 
@@ -456,6 +537,7 @@ void lighting_pass()
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
     solid_shader.upload_int("reflection_texture", 5);
+    solid_shader.upload_int("reflection", 0);
 
     render_board();
 
@@ -481,15 +563,18 @@ void App::init()
     prefilter_shader = Shader("prefilter");
     brdf_lut_shader = Shader("brdf_lut");
 
-    models[0].load("assets/king.obj");
-    models[1].load("assets/queen.obj");
-    models[2].load("assets/bishop.obj");
-    models[3].load("assets/knight.obj");
-    models[4].load("assets/rook.obj");
-    models[5].load("assets/pawn.obj");
-    board_model.load("assets/board.obj");
-    skybox_model.load("assets/skybox.obj");
-    test_sphere.load("assets/sphere.obj");
+    skybox_model.load("assets/env/skybox.obj");
+    board_model.load("assets/models/board.obj");
+
+    const char* piece_names[] = { "king", "queen", "bishop", "knight", "rook", "pawn" };
+
+    for (int i = 0; i < 6; i++)
+    {
+        string path = "assets/models/" + string(piece_names[i]) + ".obj";
+        models[i].load(path.c_str());
+    }
+
+    load_textures();
 
     load_environment();
     create_reflection_texture();
@@ -611,6 +696,8 @@ void App::clean()
     for (int i = 0; i < 6; i++)
         models[i].destroy();
 
+    board_model.destroy();
+
     solid_shader.destroy();
     shadow_shader.destroy();
     skybox_shader.destroy();
@@ -631,4 +718,16 @@ void App::clean()
 
     glDeleteTextures(1, &reflection_texture);
     glDeleteRenderbuffers(1, &reflection_rbo);
+
+    glDeleteTextures(1, &white_albedo);
+    glDeleteTextures(1, &black_albedo);
+    glDeleteTextures(1, &board_albedo);
+
+    glDeleteTextures(1, &white_normal);
+    glDeleteTextures(1, &black_normal);
+    glDeleteTextures(1, &board_normal);
+
+    glDeleteTextures(1, &white_arm);
+    glDeleteTextures(1, &black_arm);
+    glDeleteTextures(1, &board_arm);
 }
