@@ -470,6 +470,9 @@ void Board::click(int x, int y) {
 
                 }
                 movePiece(selected, &move);
+                if (square[move.getY()][move.getX()].getPiece() == PAWN && (move.getY() == 0 || move.getY() == 7))
+                    square[move.getY()][move.getX()].setPieceAndColor(QUEEN, turn);
+                    
                 clearSelected();
                 turn = (turn == WHITE) ? BLACK : WHITE;
                 if (!hasAnyValidMove(turn)) {
