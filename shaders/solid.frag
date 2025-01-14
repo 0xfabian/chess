@@ -229,9 +229,9 @@ void main()
 
     vec3 albedo = texture(albedo_texture, uvs).rgb;
     vec3 arm = texture(arm_texture, uvs).rgb;
-    float metalic = arm.b;
-    float roughness = arm.g;
     float ao = arm.r;
+    float roughness = arm.g;
+    float metalic = arm.b;
 
     vec3 ambient = calc_ibl(n, v, albedo, metalic, roughness);
     vec3 direct = calc_pbr(n, v, l, albedo, metalic, roughness);
