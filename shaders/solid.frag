@@ -1,8 +1,10 @@
 #version 460 core
 
 in vec3 wpos;
+in vec2 uvs;
 in vec4 lpos;
-in vec3 norm;
+in vec3 normal;
+in vec3 tangent;
 
 out vec4 FragColor;
 
@@ -14,6 +16,10 @@ uniform samplerCube irradiance_map;
 uniform samplerCube prefilter_map;
 uniform sampler2D brdf_lut;
 uniform sampler2D reflection_texture;
+
+uniform sampler2D albedo_texture;
+uniform sampler2D arm_texture;
+uniform sampler2D normal_map;
 
 uniform int white;
 
@@ -207,50 +213,31 @@ vec3 calc_ibl(vec3 n, vec3 v, vec3 albedo, float metalic, float roughness)
 
 void main()
 {
-    vec3 n = normalize(norm);
+    vec3 t = normalize(tangent);
+    vec3 n = normalize(normal);
+
+    t = normalize(t - dot(t, n) * n);
+    vec3 b = cross(n, t);
+
+    mat3 tbn = mat3(t, b, n);
+    vec3 nm = texture(normal_map, uvs).xyz * 2 - 1;
+
+    n = normalize(tbn * nm);
+
     vec3 v = normalize(eye - wpos);
     vec3 l = normalize(light - wpos);
 
-    vec3 albedo;
-    float metalic;
-    float roughness;
-    float ao = 1;
-
-    if (white == 0)
-    {
-        albedo = vec3(0.56, 0.57, 0.58);
-        metalic = 1;
-        roughness = 0.2;
-
-        // albedo = vec3(0);
-        // metalic = 0;
-        // roughness = 0.2;
-    }
-    if (white == 1)
-    {
-        albedo = vec3(0.95, 0.44, 0.14);
-        metalic = 1;
-        roughness = 0.2;
-
-        // albedo = vec3(1);
-        // metalic = 0;
-        // roughness = 0.2;
-    }
-    else if (white == 2)
-    {
-        float t = checkerboard(wpos.xz, vec2(0.01, 0), vec2(0, 0.01));
-
-        albedo = mix(vec3(0.2), vec3(1), t);
-        // metalic = 0;
-        metalic = 1;
-        roughness = 0.2;
-    }
+    vec3 albedo = texture(albedo_texture, uvs).rgb;
+    vec3 arm = texture(arm_texture, uvs).rgb;
+    float metalic = arm.b;
+    float roughness = arm.g;
+    float ao = arm.r;
 
     vec3 ambient = calc_ibl(n, v, albedo, metalic, roughness);
     vec3 direct = calc_pbr(n, v, l, albedo, metalic, roughness);
     float shadow = calc_shadow_rs(lpos);
 
-    vec3 final = 0.5 * ambient * ao + direct * shadow;
+    vec3 final = ambient * ao + direct * shadow;
 
     final = final / (final + vec3(1));
     final = pow(final, vec3(1 / 2.2));
