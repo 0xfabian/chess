@@ -75,7 +75,8 @@ void Mesh::load(const char* path)
 
                 if (vertex_map.find(key) == vertex_map.end())
                 {
-                    vertex_map[key] = vertex_map.size();
+                    int index = vertex_map.size();
+                    vertex_map[key] = index;
                     vertices.push_back(Vertex(temp_vertices[v[i]], temp_normals[n[i]], temp_uvs[t[i]]));
                 }
 
