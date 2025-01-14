@@ -199,7 +199,9 @@ vec3 calc_ibl(vec3 n, vec3 v, vec3 albedo, float metalic, float roughness)
         vec3 color = sum.rgb;
         float alpha = sum.a;
 
-        color /= alpha;
+        if (alpha > 0)
+            color /= alpha;
+            
         color = pow(color, vec3(2.2));
         color = color / (vec3(1) - color);
 
