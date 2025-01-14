@@ -439,7 +439,7 @@ void render_pieces(RenderContext context = RenderContext::Normal)
             float up = 0;
 
             if (board.getSelected() == square)
-                up = 0.5;
+                up = 0.3;
 
             mat4 model_mat = translate(mat4(1), vec3(x - 4 + 0.5, up, y - 4 + 0.5));
 
