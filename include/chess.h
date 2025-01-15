@@ -73,4 +73,5 @@ public:
     vector<Square> generatePawnMoves(int x, int y);
     vector<Piece> getCapuredWhitePieces();
     vector<Piece> getCapuredBlackPieces();
+    void reset();
 };

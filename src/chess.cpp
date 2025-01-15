@@ -443,6 +443,19 @@ void Board::checkSpecialMoves(Square* move)
     }
 }
 
+void Board::reset()
+{
+    Board();
+    clearSelected();
+    capuredWhitePieces.clear();
+    capuredBlackPieces.clear();
+    game_state = ONGOING;
+    enPassant = nullptr;
+    castlingWhiteKing = true;
+    castlingWhiteQueen = true;
+    castlingBlackKing = true;
+    castlingBlackQueen = true;
+}
 
 void Board::click(int x, int y) {  
     Square* s = &square[y][x];
