@@ -608,6 +608,9 @@ bool rayPlaneIntersection(const vec3& rayOrigin, const vec3& rayDirection, const
 
 void App::update(float dt)
 {
+    if (is_key_down(SDLK_r))
+        board.restart();
+
     int mx, my;
 
     SDL_GetMouseState(&mx, &my);
