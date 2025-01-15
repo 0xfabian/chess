@@ -358,7 +358,7 @@ bool Board::hasAnyValidMove(Color color) {
 }
 
 void Board::generateValidMoves(Square* s) {
-    
+
     validMoves.clear();
     vector<Square> moves = generateMoves(s);
     for (auto& move : moves) {
@@ -376,17 +376,17 @@ void Board::addSpecialMoves(Square* s)
     int x = s->getX();
     int y = s->getY();
     int dir = (turn == WHITE) ? 1 : -1;
-    if(s->getPiece() == KING)
+    if (s->getPiece() == KING)
     {
-        if(square[y][x+1].isEmpty() && square[y][x+2].isEmpty() && !isCheck(turn) && !squareAttacked(x+1, y, turn) && !squareAttacked(x+2, y, turn))
-            if((castlingWhiteKing && turn == WHITE) || (castlingBlackKing && turn == BLACK))
+        if (square[y][x + 1].isEmpty() && square[y][x + 2].isEmpty() && !isCheck(turn) && !squareAttacked(x + 1, y, turn) && !squareAttacked(x + 2, y, turn))
+            if ((castlingWhiteKing && turn == WHITE) || (castlingBlackKing && turn == BLACK))
                 validMoves.push_back(square[y][x + 2]);
-        if(square[y][x-1].isEmpty() && square[y][x-2].isEmpty() && square[y][x-3].isEmpty() && !isCheck(turn)  && !squareAttacked(x-1, y, turn) && !squareAttacked(x-2, y, turn))
-            if((castlingWhiteQueen && turn == WHITE) || (castlingBlackQueen && turn == BLACK))
+        if (square[y][x - 1].isEmpty() && square[y][x - 2].isEmpty() && square[y][x - 3].isEmpty() && !isCheck(turn) && !squareAttacked(x - 1, y, turn) && !squareAttacked(x - 2, y, turn))
+            if ((castlingWhiteQueen && turn == WHITE) || (castlingBlackQueen && turn == BLACK))
                 validMoves.push_back(square[y][x - 2]);
     }
 
-    if(s->getPiece() == PAWN)
+    if (s->getPiece() == PAWN)
     {
         if (enPassant != nullptr && enPassant->getX() == x + 1 && enPassant->getY() == y && s->getColor() != enPassant->getColor())
             validMoves.push_back(square[y + dir][x + 1]);
@@ -399,9 +399,9 @@ void Board::checkSpecialMoves(Square* move)
 {
     int dir = (turn == WHITE) ? 1 : -1;
 
-    if(enPassant != nullptr && selected->getPiece() == PAWN && move->getX() == enPassant->getX() && move->getY() == enPassant->getY() + dir)
+    if (enPassant != nullptr && selected->getPiece() == PAWN && move->getX() == enPassant->getX() && move->getY() == enPassant->getY() + dir)
     {
-        if(turn == WHITE)
+        if (turn == WHITE)
             capuredBlackPieces.push_back(enPassant->getPiece());
         else
             capuredWhitePieces.push_back(enPassant->getPiece());
@@ -409,7 +409,7 @@ void Board::checkSpecialMoves(Square* move)
     }
 
 
-    if(selected->getPiece() == PAWN && abs(selected->getY() - move->getY()) == 2)
+    if (selected->getPiece() == PAWN && abs(selected->getY() - move->getY()) == 2)
         enPassant = &square[move->getY()][move->getX()];
     else
         enPassant = nullptr;
@@ -418,7 +418,7 @@ void Board::checkSpecialMoves(Square* move)
         if (move->getX() == selected->getX() + 2)
             movePiece(&square[selected->getY()][7], &square[selected->getY()][5]);
 
-        if (move->getX() == selected->getX() - 2) 
+        if (move->getX() == selected->getX() - 2)
             movePiece(&square[selected->getY()][0], &square[selected->getY()][3]);
 
         if (turn == WHITE) {
@@ -459,7 +459,7 @@ void Board::reset()
 
 }
 
-Square* Board::click(int x, int y) {  
+Square* Board::click(int x, int y) {
     Square* s = &square[y][x];
     if (selected == nullptr)
     {
@@ -476,9 +476,9 @@ Square* Board::click(int x, int y) {
             if (move.getX() == x && move.getY() == y)
             {
                 checkSpecialMoves(&move);
-                if(move.getPiece() != EMPTY)
+                if (move.getPiece() != EMPTY)
                 {
-                    if(move.getColor() == WHITE)
+                    if (move.getColor() == WHITE)
                         capuredWhitePieces.push_back(move.getPiece());
                     else
                         capuredBlackPieces.push_back(move.getPiece());
@@ -487,7 +487,7 @@ Square* Board::click(int x, int y) {
                 movePiece(selected, &move);
                 if (square[move.getY()][move.getX()].getPiece() == PAWN && (move.getY() == 0 || move.getY() == 7))
                     square[move.getY()][move.getX()].setPieceAndColor(QUEEN, turn);
-                    
+
                 clearSelected();
                 turn = (turn == WHITE) ? BLACK : WHITE;
                 if (!hasAnyValidMove(turn)) {
@@ -496,7 +496,7 @@ Square* Board::click(int x, int y) {
                     else
                         game_state = STALEMATE;
                 }
-                return &square[move.getX()][move.getY()];
+                return &square[y][x];
             }
 
         if (!s->isEmpty() && s->getColor() == turn && s != selected) {
