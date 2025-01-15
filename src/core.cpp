@@ -20,6 +20,8 @@ void core::init(int width, int height, const char* name)
 
     SDL_Init(SDL_INIT_EVERYTHING);
 
+    Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048);
+
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
@@ -55,6 +57,8 @@ void core::clean()
 
     SDL_GL_DeleteContext(window.gl_context);
     SDL_DestroyWindow(window.sdl_win);
+
+    Mix_CloseAudio();
     SDL_Quit();
 }
 
