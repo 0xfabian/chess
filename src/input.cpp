@@ -18,6 +18,18 @@ void update_inputs()
             buttons[pair.first] = InputState::NONE;
 }
 
+void set_key_down(SDL_Keycode key)
+{
+    if (keys[key] == InputState::NONE)
+        keys[key] = InputState::DOWN;
+}
+
+void set_key_up(SDL_Keycode key)
+{
+    if (keys[key] == InputState::PRESSED)
+        keys[key] = InputState::UP;
+}
+
 bool is_key_down(SDL_Keycode key)
 {
     return keys[key] == InputState::DOWN;

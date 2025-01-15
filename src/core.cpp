@@ -71,8 +71,8 @@ void handle_events()
         switch (event.type)
         {
         case SDL_QUIT:              window.is_open = false;                                 break;
-        case SDL_KEYDOWN:           keys[event.key.keysym.sym] = InputState::DOWN;          break;
-        case SDL_KEYUP:             keys[event.key.keysym.sym] = InputState::UP;            break;
+        case SDL_KEYDOWN:           set_key_down(event.key.keysym.sym);                     break;
+        case SDL_KEYUP:             set_key_up(event.key.keysym.sym);                       break;
         case SDL_MOUSEBUTTONDOWN:   buttons[event.button.button] = InputState::DOWN;        break;
         case SDL_MOUSEBUTTONUP:     buttons[event.button.button] = InputState::UP;          break;
         case SDL_MOUSEWHEEL:        cam.zoom(event.wheel.y);                                break;

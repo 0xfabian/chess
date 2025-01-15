@@ -16,6 +16,9 @@ extern std::unordered_map<int, InputState> buttons;
 
 void update_inputs();
 
+void set_key_down(SDL_Keycode key);
+void set_key_up(SDL_Keycode key);
+
 bool is_key_down(SDL_Keycode key);
 bool is_key_pressed(SDL_Keycode key);
 bool is_key_up(SDL_Keycode key);

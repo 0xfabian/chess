@@ -716,7 +716,7 @@ void App::update(float dt)
         if (on_board)
         {
             Square* before = board.getSelected();
-            if(before)
+            if (before)
             {
                 anim_piece = before->getPiece();
                 anim_color = before->getColor();
