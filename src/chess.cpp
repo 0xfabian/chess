@@ -484,7 +484,7 @@ Square* Board::click(int x, int y) {
 
                 }
                 movePiece(selected, &move);
-                if (square[y][x].getPiece() == PAWN && (y == 0 || x == 7))
+                if (square[y][x].getPiece() == PAWN && (y == 0 || y == 7))
                     square[y][x].setPieceAndColor(QUEEN, turn);
 
                 clearSelected();
