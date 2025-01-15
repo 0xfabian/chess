@@ -54,7 +54,7 @@ GLuint brdf_lut;
 GLuint reflection_texture;
 GLuint reflection_rbo;
 
-float anim_duration = 1;
+float anim_duration = 0.2;
 float anim_time;
 Piece anim_piece;
 Color anim_color;
@@ -448,12 +448,12 @@ void render_pieces(RenderContext context = RenderContext::Normal)
             Color color = square->getColor();
             Mesh* model = &models[piece];
 
-            // float up = 0;
+            float up = 0;
 
-            // if (board.getSelected() == square)
-            //     up = 0.3;
+            if (board.getSelected() == square)
+                up = 0.3;
 
-            mat4 model_mat = translate(mat4(1), vec3(x - 4 + 0.5, 0, y - 4 + 0.5));
+            mat4 model_mat = translate(mat4(1), vec3(x - 4 + 0.5, up, y - 4 + 0.5));
 
             if (context == RenderContext::ShadowPass)
                 shadow_shader.upload_mat4("model_mat", model_mat);
@@ -706,7 +706,7 @@ void App::update(float dt)
     {
         if (on_board)
         {
-            Square* before = board.getSquare(board_x, board_y);
+            Square* before = board.getSelected();
             Square* after = board.click(board_x, board_y);
 
             if (before && after)
@@ -715,7 +715,7 @@ void App::update(float dt)
                 anim_color = after->getColor();
                 anim_square = after;
 
-                start_pos = vec3(before->getX() - 4 + 0.5, 0, before->getY() - 4 + 0.5);
+                start_pos = vec3(before->getX() - 4 + 0.5, 0.3, before->getY() - 4 + 0.5);
                 end_pos = vec3(after->getX() - 4 + 0.5, 0, after->getY() - 4 + 0.5);
                 current_pos = start_pos;
 
