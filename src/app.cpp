@@ -54,6 +54,15 @@ GLuint brdf_lut;
 GLuint reflection_texture;
 GLuint reflection_rbo;
 
+float anim_duration = 1;
+float anim_time;
+Piece anim_piece;
+Color anim_color;
+vec3 start_pos;
+vec3 current_pos;
+vec3 end_pos;
+Square* anim_square;
+
 GLuint load_texture(const char* path, bool srgb = false)
 {
     int width, height, channels;
@@ -429,6 +438,9 @@ void render_pieces(RenderContext context = RenderContext::Normal)
         {
             Square* square = board.getSquare(x, y);
 
+            if (anim_square == square)
+                continue;
+
             if (square->isEmpty())
                 continue;
 
@@ -436,12 +448,12 @@ void render_pieces(RenderContext context = RenderContext::Normal)
             Color color = square->getColor();
             Mesh* model = &models[piece];
 
-            float up = 0;
+            // float up = 0;
 
-            if (board.getSelected() == square)
-                up = 0.3;
+            // if (board.getSelected() == square)
+            //     up = 0.3;
 
-            mat4 model_mat = translate(mat4(1), vec3(x - 4 + 0.5, up, y - 4 + 0.5));
+            mat4 model_mat = translate(mat4(1), vec3(x - 4 + 0.5, 0, y - 4 + 0.5));
 
             if (context == RenderContext::ShadowPass)
                 shadow_shader.upload_mat4("model_mat", model_mat);
@@ -465,6 +477,33 @@ void render_pieces(RenderContext context = RenderContext::Normal)
 
             model->draw();
         }
+    }
+
+    if (anim_square)
+    {
+        mat4 model_mat = translate(mat4(1), current_pos);
+
+        if (context == RenderContext::ShadowPass)
+            shadow_shader.upload_mat4("model_mat", model_mat);
+        else
+        {
+            glActiveTexture(GL_TEXTURE6);
+            glBindTexture(GL_TEXTURE_2D, anim_color == WHITE ? white_albedo : black_albedo);
+            solid_shader.upload_int("albedo_texture", 6);
+
+            glActiveTexture(GL_TEXTURE7);
+            glBindTexture(GL_TEXTURE_2D, anim_color == WHITE ? white_arm : black_arm);
+            solid_shader.upload_int("arm_texture", 7);
+
+            glActiveTexture(GL_TEXTURE8);
+            glBindTexture(GL_TEXTURE_2D, anim_color == WHITE ? white_normal : black_normal);
+            solid_shader.upload_int("normal_map", 8);
+
+            solid_shader.upload_mat4("model_mat", model_mat);
+            solid_shader.upload_int("white", anim_color);
+        }
+
+        models[anim_piece].draw();
     }
 }
 
@@ -608,6 +647,18 @@ bool rayPlaneIntersection(const vec3& rayOrigin, const vec3& rayDirection, const
 
 void App::update(float dt)
 {
+    if (anim_square)
+    {
+        anim_time += dt;
+
+        float t = anim_time / anim_duration;
+
+        if (t > 1)
+            anim_square = nullptr;
+        else
+            current_pos = mix(start_pos, end_pos, t);
+    }
+
     if (is_key_down(SDLK_r))
         board.reset();
 
@@ -651,10 +702,26 @@ void App::update(float dt)
     last_mx = mx;
     last_my = my;
 
-    if (is_button_down(SDL_BUTTON_LEFT))
+    if (!anim_square && is_button_down(SDL_BUTTON_LEFT))
     {
         if (on_board)
-            board.click(board_x, board_y);
+        {
+            Square* before = board.getSquare(board_x, board_y);
+            Square* after = board.click(board_x, board_y);
+
+            if (before && after)
+            {
+                anim_piece = after->getPiece();
+                anim_color = after->getColor();
+                anim_square = after;
+
+                start_pos = vec3(before->getX() - 4 + 0.5, 0, before->getY() - 4 + 0.5);
+                end_pos = vec3(after->getX() - 4 + 0.5, 0, after->getY() - 4 + 0.5);
+                current_pos = start_pos;
+
+                anim_time = 0;
+            }
+        }
         else
             board.clearSelected();
     }
