@@ -54,7 +54,7 @@ GLuint brdf_lut;
 GLuint reflection_texture;
 GLuint reflection_rbo;
 
-float anim_duration = 0.2;
+float anim_duration = 0.1;
 float anim_time;
 Piece anim_piece;
 Color anim_color;
@@ -645,6 +645,14 @@ bool rayPlaneIntersection(const vec3& rayOrigin, const vec3& rayDirection, const
     return true;
 }
 
+vec3 animate(vec3 a, vec3 b, float t)
+{
+    t = glm::clamp(t, 0.0f, 1.0f);
+    t = t * t * (3.0f - 2.0f * t);
+
+    return a + t * (b - a);
+}
+
 void App::update(float dt)
 {
     if (anim_square)
@@ -656,7 +664,7 @@ void App::update(float dt)
         if (t > 1)
             anim_square = nullptr;
         else
-            current_pos = mix(start_pos, end_pos, t);
+            current_pos = animate(start_pos, end_pos, t);
     }
 
     if (is_key_down(SDLK_r))
