@@ -1,4 +1,16 @@
 #include "chess.h"
+#include <SDL_mixer.h>
+
+using namespace std;
+
+Mix_Chunk* move_sound;
+Mix_Chunk* capture_sound;
+Mix_Chunk* check_sound;
+Mix_Chunk* promote_sound;
+Mix_Chunk* castle_sound;
+Mix_Chunk* end_sound;
+Mix_Chunk* start_sound;
+Mix_Chunk* sound = nullptr;
 
 Square::Square() {
     piece = EMPTY;
@@ -44,7 +56,14 @@ bool Square::isEmpty() {
     return piece == EMPTY;
 }
 
-Board::Board() {
+void Board::init() {
+    move_sound = Mix_LoadWAV("assets/sounds/move.wav");
+    capture_sound = Mix_LoadWAV("assets/sounds/capture.wav");
+    check_sound = Mix_LoadWAV("assets/sounds/check.wav");
+    promote_sound = Mix_LoadWAV("assets/sounds/promote.wav");
+    castle_sound = Mix_LoadWAV("assets/sounds/castle.wav");
+    end_sound = Mix_LoadWAV("assets/sounds/game-end.wav");
+    start_sound = Mix_LoadWAV("assets/sounds/game-start.wav");
     reset();
 }
 
@@ -378,6 +397,7 @@ void Board::checkSpecialMoves(Square* move)
         else
             capuredWhitePieces.push_back(enPassant->getPiece());
         square[enPassant->getY()][enPassant->getX()].setEmpty();
+        sound = capture_sound;
     }
 
 
@@ -387,11 +407,15 @@ void Board::checkSpecialMoves(Square* move)
         enPassant = nullptr;
 
     if (selected->getPiece() == KING) {
-        if (move->getX() == selected->getX() + 2)
+        if (move->getX() == selected->getX() + 2){
             movePiece(&square[selected->getY()][7], &square[selected->getY()][5]);
+            Mix_PlayChannel(-1, castle_sound, 0);
+        }
 
-        if (move->getX() == selected->getX() - 2)
+        if (move->getX() == selected->getX() - 2){
             movePiece(&square[selected->getY()][0], &square[selected->getY()][3]);
+            Mix_PlayChannel(-1, castle_sound, 0);
+        }
 
         if (turn == WHITE) {
             castlingWhiteKing = false;
@@ -457,6 +481,8 @@ void Board::reset()
     castlingBlackKing = true;
     castlingBlackQueen = true;
     turn = WHITE;
+    sound = nullptr;
+    Mix_PlayChannel(-1, start_sound, 0);
 }
 
 Square* Board::click(int x, int y) {
@@ -474,9 +500,11 @@ Square* Board::click(int x, int y) {
         for (auto& move : validMoves)
             if (move.getX() == x && move.getY() == y)
             {
+                sound = move_sound;
                 checkSpecialMoves(&move);
                 if (move.getPiece() != EMPTY)
                 {
+                    sound = capture_sound;
                     if (move.getColor() == WHITE)
                         capuredWhitePieces.push_back(move.getPiece());
                     else
@@ -484,17 +512,23 @@ Square* Board::click(int x, int y) {
 
                 }
                 movePiece(selected, &move);
-                if (square[y][x].getPiece() == PAWN && (y == 0 || y == 7))
+                if (square[y][x].getPiece() == PAWN && (y == 0 || y == 7)){
                     square[y][x].setPieceAndColor(QUEEN, turn);
+                    Mix_PlayChannel(-1, promote_sound, 0);
+                }
 
-                clearSelected();
                 turn = (turn == WHITE) ? BLACK : WHITE;
+                if (isCheck(turn))
+                    sound = check_sound; 
+                clearSelected();
                 if (!hasAnyValidMove(turn)) {
                     if (isCheck(turn))
                         game_state = CHECKMATE;
                     else
                         game_state = STALEMATE;
+                    sound = end_sound;
                 }
+                Mix_PlayChannel(-1, sound, 0);
                 return &square[y][x];
             }
 

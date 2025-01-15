@@ -54,7 +54,7 @@ GLuint brdf_lut;
 GLuint reflection_texture;
 GLuint reflection_rbo;
 
-float anim_duration = 0.1;
+float anim_duration = 0.05;
 float anim_time;
 Piece anim_piece;
 Color anim_color;
@@ -62,8 +62,6 @@ vec3 start_pos;
 vec3 current_pos;
 vec3 end_pos;
 Square* anim_square;
-
-Mix_Chunk* move_sound;
 
 GLuint load_texture(const char* path, bool srgb = false)
 {
@@ -596,8 +594,7 @@ void App::init()
 
     SDL_GetMouseState(&last_mx, &last_my);
 
-    move_sound = Mix_LoadWAV("assets/sounds/move.wav");
-
+    board.init();
     solid_shader = Shader("solid");
     shadow_shader = Shader("shadow");
     skybox_shader = Shader("skybox");
@@ -716,17 +713,18 @@ void App::update(float dt)
 
     if (!anim_square && is_button_down(SDL_BUTTON_LEFT))
     {
-        Mix_PlayChannel(-1, move_sound, 0);
-
         if (on_board)
         {
             Square* before = board.getSelected();
+            if(before)
+            {
+                anim_piece = before->getPiece();
+                anim_color = before->getColor();
+            }
             Square* after = board.click(board_x, board_y);
 
             if (before && after)
             {
-                anim_piece = after->getPiece();
-                anim_color = after->getColor();
                 anim_square = after;
 
                 start_pos = vec3(before->getX() - 4 + 0.5, 0.3, before->getY() - 4 + 0.5);
