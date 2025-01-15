@@ -46,34 +46,6 @@ bool Square::isEmpty() {
 
 Board::Board() {
     reset();
-    for (int i = 0; i < 8; i++)
-        for (int j = 0; j < 8; j++) {
-            square[i][j].setEmpty();
-            square[i][j].setPos(j, i);
-        }
-
-    for (int i = 0; i < 8; i++) {
-        square[1][i].setPieceAndColor(PAWN, WHITE);
-        square[6][i].setPieceAndColor(PAWN, BLACK);
-    }
-
-    square[0][0].setPieceAndColor(ROOK, WHITE);
-    square[0][1].setPieceAndColor(KNIGHT, WHITE);
-    square[0][2].setPieceAndColor(BISHOP, WHITE);
-    square[0][3].setPieceAndColor(QUEEN, WHITE);
-    square[0][4].setPieceAndColor(KING, WHITE);
-    square[0][5].setPieceAndColor(BISHOP, WHITE);
-    square[0][6].setPieceAndColor(KNIGHT, WHITE);
-    square[0][7].setPieceAndColor(ROOK, WHITE);
-
-    square[7][0].setPieceAndColor(ROOK, BLACK);
-    square[7][1].setPieceAndColor(KNIGHT, BLACK);
-    square[7][2].setPieceAndColor(BISHOP, BLACK);
-    square[7][3].setPieceAndColor(QUEEN, BLACK);
-    square[7][4].setPieceAndColor(KING, BLACK);
-    square[7][5].setPieceAndColor(BISHOP, BLACK);
-    square[7][6].setPieceAndColor(KNIGHT, BLACK);
-    square[7][7].setPieceAndColor(ROOK, BLACK);
 }
 
 Square* Board::getSelected() {
@@ -446,6 +418,35 @@ void Board::checkSpecialMoves(Square* move)
 
 void Board::reset()
 {
+    for (int i = 0; i < 8; i++)
+        for (int j = 0; j < 8; j++) {
+            square[i][j].setEmpty();
+            square[i][j].setPos(j, i);
+        }
+
+    for (int i = 0; i < 8; i++) {
+        square[1][i].setPieceAndColor(PAWN, WHITE);
+        square[6][i].setPieceAndColor(PAWN, BLACK);
+    }
+
+    square[0][0].setPieceAndColor(ROOK, WHITE);
+    square[0][1].setPieceAndColor(KNIGHT, WHITE);
+    square[0][2].setPieceAndColor(BISHOP, WHITE);
+    square[0][3].setPieceAndColor(QUEEN, WHITE);
+    square[0][4].setPieceAndColor(KING, WHITE);
+    square[0][5].setPieceAndColor(BISHOP, WHITE);
+    square[0][6].setPieceAndColor(KNIGHT, WHITE);
+    square[0][7].setPieceAndColor(ROOK, WHITE);
+
+    square[7][0].setPieceAndColor(ROOK, BLACK);
+    square[7][1].setPieceAndColor(KNIGHT, BLACK);
+    square[7][2].setPieceAndColor(BISHOP, BLACK);
+    square[7][3].setPieceAndColor(QUEEN, BLACK);
+    square[7][4].setPieceAndColor(KING, BLACK);
+    square[7][5].setPieceAndColor(BISHOP, BLACK);
+    square[7][6].setPieceAndColor(KNIGHT, BLACK);
+    square[7][7].setPieceAndColor(ROOK, BLACK);
+
     clearSelected();
     capuredWhitePieces.clear();
     capuredBlackPieces.clear();
@@ -456,7 +457,6 @@ void Board::reset()
     castlingBlackKing = true;
     castlingBlackQueen = true;
     turn = WHITE;
-
 }
 
 Square* Board::click(int x, int y) {
