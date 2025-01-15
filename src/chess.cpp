@@ -471,7 +471,6 @@ Square* Board::click(int x, int y) {
     }
     else
     {
-
         for (auto& move : validMoves)
             if (move.getX() == x && move.getY() == y)
             {
@@ -487,7 +486,7 @@ Square* Board::click(int x, int y) {
                 movePiece(selected, &move);
                 if (square[y][x].getPiece() == PAWN && (y == 0 || x == 7))
                     square[y][x].setPieceAndColor(QUEEN, turn);
-                    
+
                 clearSelected();
                 turn = (turn == WHITE) ? BLACK : WHITE;
                 if (!hasAnyValidMove(turn)) {
@@ -496,7 +495,6 @@ Square* Board::click(int x, int y) {
                     else
                         game_state = STALEMATE;
                 }
-                return &square[y][x];
                 return &square[y][x];
             }
 
