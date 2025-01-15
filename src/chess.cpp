@@ -45,6 +45,7 @@ bool Square::isEmpty() {
 }
 
 Board::Board() {
+    reset();
     for (int i = 0; i < 8; i++)
         for (int j = 0; j < 8; j++) {
             square[i][j].setEmpty();
@@ -445,7 +446,6 @@ void Board::checkSpecialMoves(Square* move)
 
 void Board::reset()
 {
-    Board();
     clearSelected();
     capuredWhitePieces.clear();
     capuredBlackPieces.clear();
@@ -455,9 +455,11 @@ void Board::reset()
     castlingWhiteQueen = true;
     castlingBlackKing = true;
     castlingBlackQueen = true;
+    turn = WHITE;
+
 }
 
-void Board::click(int x, int y) {  
+Square* Board::click(int x, int y) {  
     Square* s = &square[y][x];
     if (selected == nullptr)
     {
@@ -494,7 +496,7 @@ void Board::click(int x, int y) {
                     else
                         game_state = STALEMATE;
                 }
-                return;
+                return &square[move.getX()][move.getY()];
             }
 
         if (!s->isEmpty() && s->getColor() == turn && s != selected) {
@@ -505,4 +507,5 @@ void Board::click(int x, int y) {
         else
             clearSelected();
     }
+    return nullptr;
 }

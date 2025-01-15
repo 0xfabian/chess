@@ -60,7 +60,7 @@ public:
     void generateValidMoves(Square*);
     void addSpecialMoves(Square* s);
     void checkSpecialMoves(Square* move);
-    void click(int x, int y);
+    Square* click(int x, int y);
     Square* getSelected();
     vector<Square> getValidMoves();
     void clearSelected();
