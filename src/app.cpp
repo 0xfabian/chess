@@ -594,7 +594,6 @@ void App::init()
 
     SDL_GetMouseState(&last_mx, &last_my);
 
-    board.init();
     solid_shader = Shader("solid");
     shadow_shader = Shader("shadow");
     skybox_shader = Shader("skybox");
@@ -625,6 +624,7 @@ void App::init()
     perspective_mat[0][0] *= -1;
     mat4 view_mat = lookAt(light_pos, vec3(0), vec3(0, 0, 1));
     light_mat = perspective_mat * view_mat;
+    board.init();
 }
 
 bool rayPlaneIntersection(const vec3& rayOrigin, const vec3& rayDirection, const vec3& planeNormal, float planeD, vec3& hit)
